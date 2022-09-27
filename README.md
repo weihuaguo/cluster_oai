@@ -34,5 +34,10 @@ oai_outcome_v99.py
 Extract the real dates: oai_time_vdate.py
 "Outputs: real_dates.csv"
 Convert the real dates into time period and integrate with outcome data: convert_to_survival_data.py
-"Outputs: Need to be cleaned!!! Select a way to quantify the survival. Should be V00"
-TODO: left here
+"Outputs: xxx_used_clean_dataframe.csv, xxx_used_clean_dataframe_with_real_time.csv, xxx_v00_real_time_survival_dataframe.csv"
+
+#### Step 1.7: Categorical variable encoding
+One-hot spot encoding: variable_encoding.py # TODO: need to be cleaned!
+
+### Step 2: Unsupervised clustering
+
