@@ -36,8 +36,15 @@ Extract the real dates: oai_time_vdate.py
 Convert the real dates into time period and integrate with outcome data: convert_to_survival_data.py
 "Outputs: xxx_used_clean_dataframe.csv, xxx_used_clean_dataframe_with_real_time.csv, xxx_v00_real_time_survival_dataframe.csv"
 
-#### Step 1.7: Categorical variable encoding
-One-hot spot encoding: variable_encoding.py # TODO: need to be cleaned!
+#### Step 1.7: Categorical variable one-hot spot encoding
+Encode the categorical variables with one-hot spot method: categorical_onehot_encoding.py
+"Outputs: onehotspot_merge_dataframe_12112020_data_clean_v25_without_na_cols.pkl"
 
 ### Step 2: Unsupervised clustering
+#### Step 2.1: Imputation, clustering, UMAP
+impute_cluster_umap.py
+"Outputs: clean_v25_cluster4_kmean_pca_umap_res.xlsx"
 
+#### Step 2.2: Cluster annotation and visualization
+cluster_annotate_vis.R
+"Outputs: TODO here"
