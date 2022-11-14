@@ -47,4 +47,5 @@ impute_cluster_umap.py
 
 #### Step 2.2: Cluster annotation and visualization
 cluster_annotate_vis.R
-"Outputs: TODO here"
+"Outputs: Fig 2, Fig S2, Table S2 (cluster_annotation_vis_outputs)"
+
