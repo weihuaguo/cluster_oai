@@ -53,3 +53,7 @@ cluster_annotate_vis.R
 cluster_outcome_analysis.R
 "Outputs: Fig 3, Fig S3"
 
+#### Step 2.4: Cross validation of clustering algorithm
+cluster_cross_validation.py
+"Outputs: Fig S4"
+cluster_cross_validation_vis.R (TODO)
