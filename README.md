@@ -52,8 +52,12 @@ cluster_annotate_vis.R
 #### Step 2.3: Survival analysis of outcomes (including total knee replacement TODO) crossing clusters
 cluster_outcome_analysis.R
 "Outputs: Fig 3, Fig S3"
+knee_replacement_extraction.py
+"Outputs: total_lastfollowup_merge_patient_basic_outcome_information.csv"
+knee_replacement_cross_cluster.R
+"Outputs: Fig S4"
 
 #### Step 2.4: Cross validation of clustering algorithm
 cluster_cross_validation.py
-"Outputs: Fig S4"
+"Outputs: Fig S5"
 cluster_cross_validation_vis.R (TODO)
