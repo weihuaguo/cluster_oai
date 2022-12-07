@@ -21,7 +21,6 @@ st = dt.now()
 mainDir = "/mnt/sda1/OAI_Data"
 dataDir = mainDir + "/ASCII"
 resDir = mainDir + "/data_summary"
-#clst_dir = mainDir + "/cv_kmean_cluster_06112021"
 clst_dir = mainDir + "/cluster_kmean_cv"
 exp_id = "12112020_data_clean"
 clean_co = "v25"
