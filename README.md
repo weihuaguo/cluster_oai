@@ -60,4 +60,5 @@ knee_replacement_cross_cluster.R
 #### Step 2.4: Cross validation of clustering algorithm
 cluster_cross_validation.py
 "Outputs: Fig S5"
-cluster_cross_validation_vis.R (TODO)
+cluster_cross_validation_vis.R
+"Outputs: Fig S6"
