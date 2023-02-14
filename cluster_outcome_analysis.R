@@ -221,6 +221,8 @@ if (surv_flag) {
 		}
 		out_name <- str_split_fixed(iprog, "_", n = 2)[1]
 	#	print(dim(tmp_prog))
+	#	print(out_name)
+	#	q(save = "no")
 		clean_prog <- tmp_prog
 	#	print(dim(clean_prog))
 		merge_prog <- merge(clean_prog, umap_df, by = "ID", all.x = T)
@@ -257,7 +259,7 @@ if (surv_flag) {
 					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 
 		png(paste(tmp_pf, 'day_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
-		print(forest_model(coxph(Surv((dstop - dstart), event) ~ Cluster, data=fprog)))
+		print(forest_model(coxph(Surv((dstop - dstart), event) ~ Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
 
 		tmp_lfit <- survfit(Surv((mstop - mstart), event) ~ Cluster, data = merge_prog, id = ID)
@@ -276,7 +278,7 @@ if (surv_flag) {
 					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 
 		png(paste(tmp_pf, 'month_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
-		print(forest_model(coxph(Surv((mstop - mstart), event) ~ Cluster, data=fprog)))
+		print(forest_model(coxph(Surv((mstop - mstart), event) ~ Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
 
 		merge_prog$half_year_mod <- merge_prog$tm %% 6
@@ -299,7 +301,7 @@ if (surv_flag) {
 		fprog$Cluster <- factor(fprog$Cluster, 
 					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 		png(paste(tmp_pf, 'half_year_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
-		print(forest_model(coxph(Surv(tyhr, event) ~ Cluster, data=fprog)))
+		print(forest_model(coxph(Surv(tyhr, event) ~ Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
 
 
@@ -327,7 +329,7 @@ if (surv_flag) {
 					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 
 		png(paste(tmp_pf, 'year_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
-		print(forest_model(coxph(Surv(tyr, event) ~ Cluster, data=fprog)))
+		print(forest_model(coxph(Surv(tyr, event) ~ Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
 	}
 }
