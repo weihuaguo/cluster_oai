@@ -17,6 +17,7 @@ suppressMessages(library(survminer))
 suppressMessages(library(scales))
 suppressMessages(library(rstatix))
 suppressMessages(library(broom))
+suppressMessages(library(forestmodel))
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
 data_dir <- "/mnt/sda1/OAI_Data/data_summary/"
@@ -91,6 +92,13 @@ gar <- dev.off()
 tmp_cox <- coxph(Surv(left_time, lkr_event) ~ Cluster, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
 
+kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
+			     levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+
+png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+print(forest_model(coxph(Surv(left_time, lkr_event) ~ Cluster, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
+gar <- dev.off()
+
 tmp_pf <- paste(data_dir, surv_folder, "/", "right_", kr_type, "_cluster_", sep = "")
 tmp_lfit <- survfit(Surv(right_time, rkr_event) ~ Cluster, data = kr_umap_df)
 tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Spectral", censor.size=2, ylim=c(0.8,1), 
@@ -101,6 +109,14 @@ print(tmp_lgg)
 gar <- dev.off()
 tmp_cox <- coxph(Surv(right_time, rkr_event) ~ Cluster, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
+
+kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
+			     levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+
+png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+print(forest_model(coxph(Surv(right_time, rkr_event) ~ Cluster, data=kr_umap_df))+labs(title = "Right knee, total knee replacement/last follow-up"))
+gar <- dev.off()
+
 
 ##### TKR crossing cohorts ####
 tmp_pf <- paste(data_dir, surv_folder, "/", "left_", kr_type, "_cohort_", sep = "")
@@ -113,6 +129,7 @@ print(tmp_lgg)
 gar <- dev.off()
 tmp_cox <- coxph(Surv(left_time, lkr_event) ~ V00COHORT, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
+
 
 tmp_pf <- paste(data_dir, surv_folder, "/", "right_", kr_type, "_cohort_", sep = "")
 tmp_lfit <- survfit(Surv(right_time, rkr_event) ~ V00COHORT, data = kr_umap_df)
