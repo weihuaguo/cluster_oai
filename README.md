@@ -62,3 +62,12 @@ cluster_cross_validation.py
 "Outputs: Fig S5"
 cluster_cross_validation_vis.R
 "Outputs: Fig S6"
+
+### Step 3: Supervised learning for clustering results
+
+### Step 4: Supervised learning for WOMAC total score
+#### Step 4.1: Correlation analysis of WOMAC total scores to all input variables (predictors)
+womts_correlation_calculation.py
+"Outputs: Data S5"
+womts_correlation_visualization.R
+"Outputs: Fig 5A&B"
