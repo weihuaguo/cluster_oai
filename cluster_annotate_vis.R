@@ -39,12 +39,12 @@ top_m <- 10
 
 names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
 
-cluster_annotation_flag <- TRUE
-numeric_vis_marker_flag <- TRUE
+cluster_annotation_flag <- FALSE
+numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- TRUE
-umap_vis_flag <- TRUE
-violin_vis_flag <- TRUE
-volcano_flag <- TRUE
+umap_vis_flag <- FALSE
+violin_vis_flag <- FALSE
+volcano_flag <- FALSE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -63,6 +63,7 @@ metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_
 # print(data_df[1:9, 1:6])
 # print(head(umap_df))
 prog_files <- list.files(data_dir, pattern = 'survival_ready_results.csv')
+var_coding <- as.data.frame(read_excel(paste(data_dir, "Variable_coding.xlsx", sep = "")))
 
 ##### UMAP overlay with clusters [Fig 2A]
 umap_df$cluster <- str_c("C", umap_df$kmean_pca)
@@ -182,21 +183,31 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 		top_n(top_m,logfc)
 	plot_top_cat_marker_df <- cat_marker_df[cat_marker_df$variable %in% unique(top_cat_marker_df$variable),]
 
+	plot_top_cat_marker_df$var_name <- plot_top_cat_marker_df$variable
+	for (ivn in 1:nrow(var_coding)) {
+		if (var_coding[ivn, "VID"] %in% plot_top_cat_marker_df$variable) {
+			tmp_mask <- plot_top_cat_marker_df$variable == var_coding[ivn, "VID"]
+			plot_top_cat_marker_df$var_name[tmp_mask] <- var_coding[ivn, "Name"]
+		}
+	}
+
 	var_levels <- c()
 	for (inm in unique(plot_top_cat_marker_df$name)) {
 		tmp_df <- plot_top_cat_marker_df[plot_top_cat_marker_df$name == inm,]
-		tmp_levels <- tmp_df$variable[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
+		tmp_levels <- tmp_df$var_name[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
 		var_levels <- c(var_levels, tmp_levels[!(tmp_levels %in% var_levels)])
 	}
-	plot_top_cat_marker_df$variable <- factor(plot_top_cat_marker_df$variable, levels = var_levels)
-	dot_mgg <- ggplot(plot_top_cat_marker_df, aes(y = name, x = variable)) +
+
+	plot_top_cat_marker_df <- plot_top_cat_marker_df[plot_top_cat_marker_df$var_name %in% var_levels,]
+	plot_top_cat_marker_df$var_name <- factor(plot_top_cat_marker_df$var_name, levels = var_levels)
+	dot_mgg <- ggplot(plot_top_cat_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
 		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
 		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key categorical variables") +
 		theme_bw() +
 		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_cate_markers.png', sep = ""), 
-	       dot_mgg, dpi = png_res, width = 10, height = 3)
+	       dot_mgg, dpi = png_res, width = 10, height = 6)
 }
 
 
@@ -213,21 +224,31 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		top_n(top_m,logfc)
 	plot_top_num_marker_df <- num_marker_df[num_marker_df$variable %in% unique(top_num_marker_df$variable),]
 
+	plot_top_num_marker_df$var_name <- plot_top_num_marker_df$variable
+	for (ivn in 1:nrow(var_coding)) {
+		if (var_coding[ivn, "VID"] %in% plot_top_num_marker_df$variable) {
+			tmp_mask <- plot_top_num_marker_df$variable == var_coding[ivn, "VID"]
+			plot_top_num_marker_df$var_name[tmp_mask] <- var_coding[ivn, "Name"]
+		}
+	}
+
 	var_levels <- c()
 	for (inm in unique(plot_top_num_marker_df$name)) {
 		tmp_df <- plot_top_num_marker_df[plot_top_num_marker_df$name == inm,]
-		tmp_levels <- tmp_df$variable[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
+		tmp_levels <- tmp_df$var_name[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
 		var_levels <- c(var_levels, tmp_levels[!(tmp_levels %in% var_levels)])
 	}
-	plot_top_num_marker_df$variable <- factor(plot_top_num_marker_df$variable, levels = var_levels)
-	dot_mgg <- ggplot(plot_top_num_marker_df, aes(y = name, x = variable)) +
+
+	plot_top_num_marker_df <- plot_top_num_marker_df[plot_top_num_marker_df$var_name %in% var_levels,]
+	plot_top_num_marker_df$var_name <- factor(plot_top_num_marker_df$var_name, levels = var_levels)
+	dot_mgg <- ggplot(plot_top_num_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
 		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0) + 
 		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key numeric variables") +
 		theme_bw() +
 		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_num_markers.png', sep = ""), 
-	       dot_mgg, dpi = png_res, width = 10, height = 3)
+	       dot_mgg, dpi = png_res, width = 10, height = 6)
 }
 
 ##### Volcano plot to visualize the markers of each cluster [Fig. S2x]
