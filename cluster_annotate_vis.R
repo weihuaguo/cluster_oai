@@ -35,15 +35,17 @@ input_prefix <- paste(clst_dir, 'clean_', clean_co, '_', sep = "")
 output_prefix <- paste(input_prefix, "final_", sep = "")
 cluster_num <- 4
 scale_top <- 4
+kr_type <- "total_lastfollowup"
 
 png_res <- 600
 top_m <- 10
 
 names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
+name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
 
-demographic_flag <- TRUE
+demographic_flag <- FALSE
 cluster_annotation_flag <- FALSE
-numeric_vis_marker_flag <- FALSE
+numeric_vis_marker_flag <- TRUE
 categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
@@ -65,6 +67,11 @@ var_types <- sapply(data_df, class)
 metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 prog_files <- list.files(data_dir, pattern = 'survival_ready_results.csv')
 var_coding <- as.data.frame(read_excel(paste(data_dir, "Variable_coding.xlsx", sep = "")))
+
+kr_df <- read.csv(paste(data_dir, kr_type, "_merge_patient_basic_outcome_information.csv", sep = ""), header = T)
+rownames(kr_df) <- kr_df$ID
+print(dim(kr_df))
+print(colnames(kr_df))
 
 ##### UMAP overlay with clusters [Fig 2A]
 umap_df$cluster <- str_c("C", umap_df$kmean_pca)
@@ -97,11 +104,16 @@ if (demographic_flag) {
 	print(colnames(data_df)[str_detect(colnames(data_df), "EDC")])
 	print(colnames(data_df)[str_detect(colnames(data_df), "EMPLOY")])
 	print(colnames(data_df)[str_detect(colnames(data_df), "BMI")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "SEX")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "COHORT")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "COMORB")])
 
-	demo_df <- data_df[,c("V00AGE", "P02RACE", "P01BMI", "V00EDCV", "V00INCOME", "V00CEMPLOY")]
-	colnames(demo_df) <- c("Age", "Race", "BMI", "Education", "Income", "Employment")
+
+	demo_df <- data_df[,c("V00AGE",  "P02SEX", "P02RACE", "P01BMI", "V00EDCV", "V00INCOME", "V00CEMPLOY", "V00COMORB")]
+	colnames(demo_df) <- c("Age", "Sex", "Race", "BMI", "Education", "Income", "Employment", "Comorbidity")
+	demo_df$Cohort <- kr_df[rownames(demo_df), "V00COHORT"]
 	table_df <- merge(umap_df, demo_df, by = "row.names")
-	demo_table <- table1(~Age+Race+BMI+Education+Income+Employment | name, data = table_df)
+	demo_table <- table1(~Age+Sex+Race+BMI+Education+Income+Employment+Comorbidity+Cohort | name, data = table_df)
 	write.csv(as.data.frame(demo_table), paste(input_prefix, "demographic_format_table.csv", sep = ""))
 }
 
@@ -201,6 +213,26 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 		top_n(top_m,logfc)
 	plot_top_cat_marker_df <- cat_marker_df[cat_marker_df$variable %in% unique(top_cat_marker_df$variable),]
 
+	write.csv(cat_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_cat_markers.csv', sep = ""))
+	co <- 1:6
+	for (ico in co) {
+		sig_cat_marker_df <- cat_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
+		dengg <- ggplot(sig_cat_marker_df, aes(x = logfc)) +
+			geom_density(aes(fill = name)) +
+			scale_fill_brewer(palette = "Spectral") +
+			facet_wrap(~name, ncol = 1) +
+			labs(fill = "Cluster", x = "Cramer's V") +
+			theme_bw()
+		ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_cat_markers_logfc_dens.png', sep = ""), dpi = png_res,
+		       width = 9, height = 9)
+	
+		sig_cat_marker_df <- cat_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico, abs(logfc) >= 0.375)
+		write.csv(sig_cat_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_cat_markers.csv', sep = ""))
+#		print(head(sig_cat_marker_df))
+#		q(save = "no")
+	}
+
+
 	plot_top_cat_marker_df$var_name <- plot_top_cat_marker_df$variable
 	for (ivn in 1:nrow(var_coding)) {
 		if (var_coding[ivn, "VID"] %in% plot_top_cat_marker_df$variable) {
@@ -218,6 +250,7 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 
 	plot_top_cat_marker_df <- plot_top_cat_marker_df[plot_top_cat_marker_df$var_name %in% var_levels,]
 	plot_top_cat_marker_df$var_name <- factor(plot_top_cat_marker_df$var_name, levels = var_levels)
+	plot_top_cat_marker_df$name <- factor(plot_top_cat_marker_df$name, levels = name_order)
 	dot_mgg <- ggplot(plot_top_cat_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
 		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
@@ -242,6 +275,24 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		top_n(top_m,logfc)
 	plot_top_num_marker_df <- num_marker_df[num_marker_df$variable %in% unique(top_num_marker_df$variable),]
 
+	write.csv(num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_num_markers.csv', sep = ""))
+	co <- 1:6
+	for (ico in co) {
+		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
+		dengg <- ggplot(sig_num_marker_df, aes(x = logfc)) +
+			geom_density(aes(fill = name)) +
+			scale_fill_brewer(palette = "Spectral") +
+			facet_wrap(~name, ncol = 1) +
+			labs(fill = "Cluster", x = "log2 Fold changes") +
+			theme_bw()
+		ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_num_markers_logfc_dens.png', sep = ""), dpi = png_res,
+		       width = 9, height = 9)
+
+		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico, abs(logfc) >= 0.5)
+		write.csv(sig_num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_num_markers.csv', sep = ""))
+#		print(head(sig_num_marker_df))
+	}
+
 	plot_top_num_marker_df$var_name <- plot_top_num_marker_df$variable
 	for (ivn in 1:nrow(var_coding)) {
 		if (var_coding[ivn, "VID"] %in% plot_top_num_marker_df$variable) {
@@ -259,6 +310,7 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 
 	plot_top_num_marker_df <- plot_top_num_marker_df[plot_top_num_marker_df$var_name %in% var_levels,]
 	plot_top_num_marker_df$var_name <- factor(plot_top_num_marker_df$var_name, levels = var_levels)
+	plot_top_num_marker_df$name <- factor(plot_top_num_marker_df$name, levels = name_order)
 	dot_mgg <- ggplot(plot_top_num_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
 		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0) + 
