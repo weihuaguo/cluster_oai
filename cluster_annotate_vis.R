@@ -21,6 +21,8 @@ suppressMessages(library(survminer))
 suppressMessages(library(scales))
 suppressMessages(library(rstatix))
 suppressMessages(library(broom))
+suppressMessages(library(boot))
+suppressMessages(library(table1))
 suppressMessages(library(colorspace))
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
@@ -39,9 +41,10 @@ top_m <- 10
 
 names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
 
+demographic_flag <- TRUE
 cluster_annotation_flag <- FALSE
 numeric_vis_marker_flag <- FALSE
-categorical_vis_marker_flag <- TRUE
+categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
@@ -60,8 +63,6 @@ data_df <- as.data.frame(read.csv(paste(data_dir, "input_direct_merge_dataframe_
 var_types <- sapply(data_df, class)
 
 metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
-# print(data_df[1:9, 1:6])
-# print(head(umap_df))
 prog_files <- list.files(data_dir, pattern = 'survival_ready_results.csv')
 var_coding <- as.data.frame(read_excel(paste(data_dir, "Variable_coding.xlsx", sep = "")))
 
@@ -86,6 +87,23 @@ metric_gg <- ggplot(gath_metric_df, aes(x=cluster_num, y = scores)) +
 	theme_bw()
 ggsave(paste(output_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '_vis.png', sep = ""), metric_gg,
 dpi = png_res, width = 6, height=6)
+
+###### Generate the demographic table [Table S1]
+if (demographic_flag) {
+	print(data_df[1:9, 1:6])
+	print(colnames(data_df)[str_detect(colnames(data_df), "INCOME")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "AGE")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "RACE")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "EDC")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "EMPLOY")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "BMI")])
+
+	demo_df <- data_df[,c("V00AGE", "P02RACE", "P01BMI", "V00EDCV", "V00INCOME", "V00CEMPLOY")]
+	colnames(demo_df) <- c("Age", "Race", "BMI", "Education", "Income", "Employment")
+	table_df <- merge(umap_df, demo_df, by = "row.names")
+	demo_table <- table1(~Age+Race+BMI+Education+Income+Employment | name, data = table_df)
+	write.csv(as.data.frame(demo_table), paste(input_prefix, "demographic_format_table.csv", sep = ""))
+}
 
 ###### Generate the marker table [Table S2]
 if (cluster_annotation_flag) {
