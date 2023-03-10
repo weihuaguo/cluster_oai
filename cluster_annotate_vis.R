@@ -44,8 +44,9 @@ names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general healt
 name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
 
 demographic_flag <- FALSE
+outcome_table_flag <- TRUE
 cluster_annotation_flag <- FALSE
-numeric_vis_marker_flag <- TRUE
+numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
@@ -66,12 +67,10 @@ var_types <- sapply(data_df, class)
 
 metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 prog_files <- list.files(data_dir, pattern = 'survival_ready_results.csv')
-var_coding <- as.data.frame(read_excel(paste(data_dir, "Variable_coding.xlsx", sep = "")))
+var_coding <- as.data.frame(read_excel(paste(data_dir, "Variable_coding_v2.xlsx", sep = "")))
 
 kr_df <- read.csv(paste(data_dir, kr_type, "_merge_patient_basic_outcome_information.csv", sep = ""), header = T)
 rownames(kr_df) <- kr_df$ID
-print(dim(kr_df))
-print(colnames(kr_df))
 
 ##### UMAP overlay with clusters [Fig 2A]
 umap_df$cluster <- str_c("C", umap_df$kmean_pca)
@@ -94,6 +93,37 @@ metric_gg <- ggplot(gath_metric_df, aes(x=cluster_num, y = scores)) +
 	theme_bw()
 ggsave(paste(output_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '_vis.png', sep = ""), metric_gg,
 dpi = png_res, width = 6, height=6)
+
+###### Generate the outcome table [Table S2]
+if (outcome_table_flag) {
+	print(dim(kr_df))
+	print(colnames(kr_df))
+	print(head(kr_df[,200:ncol(kr_df)]))
+	print(unique(kr_df[,"left_kr"]))
+	cate_kr_df <- kr_df[,c("left_time", "left_kr", "right_time", "right_kr")]
+	cate_kr_df$left_y04 <- ifelse(cate_kr_df$left_time <= 365*4+1, cate_kr_df$left_kr, 
+				      ifelse(str_detect(cate_kr_df$left_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+	cate_kr_df$left_y08 <- ifelse(cate_kr_df$left_time <= 365*8+2, cate_kr_df$left_kr, 
+				      ifelse(str_detect(cate_kr_df$left_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+
+	cate_kr_df$right_y04 <- ifelse(cate_kr_df$right_time <= 365*4+1, cate_kr_df$right_kr, 
+				      ifelse(str_detect(cate_kr_df$right_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+	cate_kr_df$right_y08 <- ifelse(cate_kr_df$right_time <= 365*8+2, cate_kr_df$right_kr, 
+				      ifelse(str_detect(cate_kr_df$right_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+
+
+	print(head(cate_kr_df))
+	print(unique(cate_kr_df[,"left_y04"]))
+
+	out_tbl_df <- cate_kr_df[,str_detect(colnames(cate_kr_df), "y0")]
+	colnames(out_tbl_df) <- c("Year4_Left", "Year8_Left", "Year4_Right", "Year8_Right")
+	print(head(out_tbl_df))
+
+	table_df <- merge(umap_df, out_tbl_df, by = "row.names")
+	kr_table <- table1(~ Year4_Left+Year8_Left+Year4_Right+Year8_Right | name, data = table_df)
+	write.csv(as.data.frame(kr_table), paste(input_prefix, "tkr_format_table.csv", sep = ""))
+
+}
 
 ###### Generate the demographic table [Table S1]
 if (demographic_flag) {
