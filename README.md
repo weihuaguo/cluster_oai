@@ -48,6 +48,8 @@ impute_cluster_umap.py
 #### Step 2.2: Cluster annotation and visualization
 cluster_annotate_vis.R
 "Outputs: Fig 2, Fig S2, Table S2 (cluster_annotation_vis_outputs), Demographic table"
+cluster_outcome_visualization.R
+"Outputs: Fig S2.5 (Outcome variables including TKR along all the visit times crossing clusters)"
 
 #### Step 2.3: Survival analysis of outcomes (including total knee replacement TODO) crossing clusters
 cluster_outcome_analysis.R
