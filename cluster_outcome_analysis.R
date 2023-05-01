@@ -38,12 +38,14 @@ clean_co <- 'v25'
 input_prefix <- paste(clst_dir, 'clean_', clean_co, '_', sep = "")
 cluster_num <- 4
 scale_top <- 4
+kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
 compare_flag <- FALSE
 pairwise_flag <- FALSE
-surv_flag <- TRUE
+surv_flag <- FALSE
+surv_cohort_flag <- TRUE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -207,6 +209,92 @@ if (pairwise_flag) {#TOOOOO time consuming
 		theme_bw()
 	ggsave(paste(data_dir, surv_folder,  "/outcome_cluster_marker_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 15, height = 5)
 }# TOOOOOOOOOOOOO
+
+if (surv_cohort_flag) {
+	prog_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = paste(surv_type, 'real_time_survival_dataframe.csv', sep = "_"))
+	print(prog_files)
+	kr_df <- read.csv(paste(data_dir, kr_type, "_merge_patient_basic_outcome_information.csv", sep = ""), header = T)
+#	print(head(kr_df))
+
+	for (iprog in prog_files) {
+		cat(iprog, "\n")
+		if (surv_type == "v00") {
+			tmp_prog <- read.csv(paste(data_dir, surv_folder, "/", iprog, sep = ""), header = T)
+		} else {
+			tmp_prog <- read.csv(paste(data_dir, surv_folder, "/", iprog, sep = ""), header = T, row.names = 1)
+		}
+		out_name <- str_split_fixed(iprog, "_", n = 2)[1]
+	#	print(dim(tmp_prog))
+	#	print(out_name)
+	#	q(save = "no")
+		clean_prog <- tmp_prog
+	#	print(dim(clean_prog))
+		merge_prog <- merge(clean_prog, umap_df, by = "ID", all.x = T)
+		merge_prog <- merge(merge_prog, kr_df[,c("ID", "V00COHORT")], by = "ID", all.x = T)
+
+		merge_prog$dstart <- as.numeric(merge_prog$dstart)
+		merge_prog$dstop <- as.numeric(merge_prog$dstop)
+	#	print(dim(merge_prog))
+	#	print(head(merge_prog))
+		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_", surv_type, "_cohort_", sep = "")
+		if (str_detect(iprog, "JSW")) {
+			ylim <- c(0.5, 1)
+			p_day_pos <- c(10,0.6)
+			p_mon_pos <- c(2,0.6)
+		} else {
+			ylim <- c(0.4, 1)
+			p_day_pos <- c(10,0.5)
+			p_mon_pos <- c(2,0.5)
+		}
+
+
+		tmp_lfit <- survfit(Surv((dstop - dstart), event) ~ V00COHORT, data = merge_prog, id = ID)
+		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = p_day_pos, ggtheme = theme_bw(), legend = "right", 
+				      legend.labs = levels(merge_prog$V00COHORT), 
+				      palette = "Set1", ylim = ylim) + 
+			labs(title = out_name, x = "Time (day)", color = "Cohort") 		
+		png(paste(tmp_pf, 'day_kmplot.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+		print(tmp_lgg)
+		gar <- dev.off()
+
+		tmp_lfit <- survfit(Surv((dstop - dstart), event) ~ Cluster, data = merge_prog[merge_prog$V00COHORT == "2: Incidence",], id = ID)
+		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+				      legend = "right", legend.title = "Cluster") + 
+			labs(title = paste(out_name, "Within incidence cohort"))
+		png(paste(tmp_pf, 'wi_incidence_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+		print(tmp_lgg)
+		gar <- dev.off()
+
+		tmp_lfit <- survfit(Surv((dstop - dstart), event) ~ Cluster, data = merge_prog[merge_prog$V00COHORT == "1: Progression",], id = ID)
+		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+				      legend = "right", legend.title = "Cluster") + 
+			labs(title = paste(out_name, "Within progression cohort"))
+		png(paste(tmp_pf, 'wi_progression_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+		print(tmp_lgg)
+		gar <- dev.off()
+
+
+		# NOTE: JUST CANNOT DO FOREST PLOT! DUE TO THE PERFECT CONTROL GROUP!!!
+		if (FALSE) {#JJJJ
+		fprog <- merge_prog
+		fprog$Cohort <- str_split_fixed(fprog$V00COHORT, "\\:\\ ", n = 2)[,2]
+		fprog$Cohort <- factor(fprog$Cohort, levels = c("Non-exposed control group", "Incidence", "Progression"))
+
+		tmp_cox <- coxph(Surv((dstop - dstart), event) ~ Cohort, data=fprog, id=ID, ties="breslow")
+		write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'day_cox.csv', sep = ""))
+
+		tmp_fgg <- ggforest(tmp_cox)
+		print("FUCK R")
+		png(paste(tmp_pf, 'day_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+		print(tmp_fgg)
+		gar <- dev.off()
+
+		png(paste(tmp_pf, 'day_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+		print(forest_model(coxph(Surv((dstop - dstart), event) ~ Cohort, data=fprog))+labs(title = out_name))
+		gar <- dev.off()
+		} #JJJJ
+	}
+}
 
 if (surv_flag) {
 	prog_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = paste(surv_type, 'real_time_survival_dataframe.csv', sep = "_"))
