@@ -81,6 +81,8 @@ all_gg <- ggplot(cohort_cts, aes(x = Cluster, y = n, color = V00COHORT, fill = V
 ggsave(paste(data_dir, surv_folder, "/cluster_", cluster_num, "_kmean_pca_cohort_rel_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 2.7)
 
 ##### TKR crossing clusters ####
+kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
+			     levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 tmp_pf <- paste(data_dir, surv_folder, "/", "left_", kr_type, "_cluster_", sep = "")
 tmp_lfit <- survfit(Surv(left_time, lkr_event) ~ Cluster, data = kr_umap_df)
 tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Spectral", censor.size=2, ylim=c(0.8,1), 
@@ -91,9 +93,6 @@ print(tmp_lgg)
 gar <- dev.off()
 tmp_cox <- coxph(Surv(left_time, lkr_event) ~ Cluster, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
-
-kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
-			     levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
 
 png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 print(forest_model(coxph(Surv(left_time, lkr_event) ~ Cluster, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
@@ -110,15 +109,16 @@ gar <- dev.off()
 tmp_cox <- coxph(Surv(right_time, rkr_event) ~ Cluster, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
 
-kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
-			     levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
-
 png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 print(forest_model(coxph(Surv(right_time, rkr_event) ~ Cluster, data=kr_umap_df))+labs(title = "Right knee, total knee replacement/last follow-up"))
 gar <- dev.off()
 
 
 ##### TKR crossing cohorts ####
+#print(unique(kr_umap_df$V00COHORT))
+kr_umap_df$V00COHORT <- factor(kr_umap_df$V00COHORT, 
+			     levels = c("3: Non-exposed control group", "2: Incidence", "1: Progression"))
+
 tmp_pf <- paste(data_dir, surv_folder, "/", "left_", kr_type, "_cohort_", sep = "")
 tmp_lfit <- survfit(Surv(left_time, lkr_event) ~ V00COHORT, data = kr_umap_df)
 tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
@@ -130,6 +130,32 @@ gar <- dev.off()
 tmp_cox <- coxph(Surv(left_time, lkr_event) ~ V00COHORT, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
 
+#png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+#print(forest_model(coxph(Surv(left_time, lkr_event) ~ V00COHORT, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
+#gar <- dev.off()
+##### TKR crossing both cohorts and clusters ####
+tmp_cox <- coxph(Surv(left_time, lkr_event) ~ V00COHORT + Cluster, data=kr_umap_df, ties="breslow")
+write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cluster_cox.csv', sep = ""))
+
+tmp_lfit <- survfit(Surv(left_time, lkr_event) ~ Cluster, data = kr_umap_df[kr_umap_df$V00COHORT == "2: Incidence",])
+tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+		      legend = "right", legend.title = "Cluster") + 
+	labs(title = "Left knee, total knee replacement/last follow-up, within 2: incidence")
+png(paste(tmp_pf, 'wi_incidence_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+print(tmp_lgg)
+gar <- dev.off()
+
+tmp_lfit <- survfit(Surv(left_time, lkr_event) ~ Cluster, data = kr_umap_df[kr_umap_df$V00COHORT == "1: Progression",])
+tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+		      legend = "right", legend.title = "Cluster") + 
+	labs(title = "Left knee, total knee replacement/last follow-up, within 1: Progression")
+png(paste(tmp_pf, 'wi_progression_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+print(tmp_lgg)
+gar <- dev.off()
+
+#png(paste(tmp_pf, 'cluster_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+#print(forest_model(coxph(Surv(left_time, lkr_event) ~ V00COHORT + Cluster, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
+#gar <- dev.off()
 
 tmp_pf <- paste(data_dir, surv_folder, "/", "right_", kr_type, "_cohort_", sep = "")
 tmp_lfit <- survfit(Surv(right_time, rkr_event) ~ V00COHORT, data = kr_umap_df)
@@ -144,7 +170,36 @@ gar <- dev.off()
 tmp_cox <- coxph(Surv(right_time, rkr_event) ~ V00COHORT, data=kr_umap_df, ties="breslow")
 write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cox.csv', sep = ""))
 
+#png(paste(tmp_pf, 'forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+#print(forest_model(coxph(Surv(left_time, lkr_event) ~ V00COHORT, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
+#gar <- dev.off()
 
+
+tmp_cox <- coxph(Surv(left_time, lkr_event) ~ V00COHORT + Cluster, data=kr_umap_df, ties="breslow")
+write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'cluster_cox.csv', sep = ""))
+
+tmp_lfit <- survfit(Surv(right_time, rkr_event) ~ Cluster, data = kr_umap_df[kr_umap_df$V00COHORT == "2: Incidence",])
+tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+		      legend = "right", legend.title = "Cluster") + 
+	labs(title = "Right knee, total knee replacement/last follow-up, within 2: incidence")
+png(paste(tmp_pf, 'wi_incidence_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+print(tmp_lgg)
+gar <- dev.off()
+
+tmp_lfit <- survfit(Surv(right_time, rkr_event) ~ Cluster, data = kr_umap_df[kr_umap_df$V00COHORT == "1: Progression",])
+tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
+		      legend = "right", legend.title = "Cluster") + 
+	labs(title = "Right knee, total knee replacement/last follow-up, within 1: Progression")
+png(paste(tmp_pf, 'wi_progression_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+print(tmp_lgg)
+gar <- dev.off()
+
+
+#png(paste(tmp_pf, 'cluster_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+#print(forest_model(coxph(Surv(left_time, lkr_event) ~ V00COHORT + Cluster, data=kr_umap_df))+labs(title = "Left knee, total knee replacement/last follow-up"))
+#gar <- dev.off()
+
+q(save = "no")
 data_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = '_used_clean_dataframe_with_real_time.csv')
 print(data_files)
 hr_cols <- c("ytyr", "outcome_name", "kr_side", "hr", "hci95", "lci95", "lrtest", "p")
