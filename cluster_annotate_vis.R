@@ -44,8 +44,9 @@ names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general healt
 name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
 
 demographic_flag <- FALSE
-outcome_table_flag <- TRUE
+outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
+one2one_annotation_flag <- TRUE
 numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
@@ -122,7 +123,6 @@ if (outcome_table_flag) {
 	table_df <- merge(umap_df, out_tbl_df, by = "row.names")
 	kr_table <- table1(~ Year4_Left+Year8_Left+Year4_Right+Year8_Right | name, data = table_df)
 	write.csv(as.data.frame(kr_table), paste(input_prefix, "tkr_format_table.csv", sep = ""))
-
 }
 
 ###### Generate the demographic table [Table S1]
@@ -146,6 +146,100 @@ if (demographic_flag) {
 	demo_table <- table1(~Age+Sex+Race+BMI+Education+Income+Employment+Comorbidity+Cohort | name, data = table_df)
 	write.csv(as.data.frame(demo_table), paste(input_prefix, "demographic_format_table.csv", sep = ""))
 }
+
+###### Compare each 2 clusters [Table S3]
+if (one2one_annotation_flag) {
+	cat("Generate marker table...\n")
+	marker_types <- sapply(data_df, class)
+	marker_cols <- c('variable', 'cluster1', 'cluster2', 'type', 'test','avg1', 'avg2', 'diff', 'logfc', 'per1', 'per2', 'pval')
+	marker_df <- as.data.frame(matrix(nrow=(cluster_num*ncol(data_df)), ncol=length(marker_cols)))
+	colnames(marker_df) <- marker_cols
+
+	print(unique(umap_df$cluster))
+	cluster_comb <- combn(unique(umap_df$cluster), 2)
+	print(cluster_comb)
+#	q(save = "no")
+
+	for (i in 1:ncol(cluster_comb)) {
+		cat("\t", cluster_comb[1,i], "vs", cluster_comb[2,i], '\n')
+		ic <- 1
+		marker_cols <- c('variable', 'cluster1', 'cluster2', 'type', 'test','avg1', 'avg2', 'diff', 'logfc', 'per1', 'per2', 'pval')
+		marker_df <- as.data.frame(matrix(nrow=(cluster_num*ncol(data_df)), ncol=length(marker_cols)))
+		colnames(marker_df) <- marker_cols
+		marker_df$cluster1 <- cluster_comb[1,i]
+		marker_df$cluster2 <- cluster_comb[2,i]
+
+		tmp_umap_df <- umap_df[umap_df$cluster %in% cluster_comb[,i],]
+		print(unique(tmp_umap_df$cluster))
+		tmp_data_df <- data_df[rownames(tmp_umap_df),]
+
+		tmp_umap_df$comp <- ifelse(tmp_umap_df$cluster == cluster_comb[1,i], 'COI', 'Others')
+		for (im in names(marker_types)) {
+	#		print(marker_types[[im]])
+			marker_df[ic, 'variable'] <- im
+#			marker_df[ic, 'cluster'] <- i
+			marker_df[ic, 'type'] <- marker_types[[im]]
+			tmp_df <- cbind(tmp_umap_df, tmp_data_df[,im])
+			tmp_force_num <- as.numeric(as.character(tmp_df[,ncol(tmp_df)]))
+			if (sum(!is.na(tmp_force_num))>0) {
+				marker_types[[im]] <- 'numeric'
+				tmp_df[,ncol(tmp_df)] <- tmp_force_num
+			}
+
+			if (marker_types[[im]]=='numeric'|marker_types[[im]]=='integer'){
+	#			cat("\t\tKruskal-Wallis Test...\n")
+				marker_df[ic, 'test'] <- 'Kruskal-Wallis test'
+	#			print(head(tmp_df))
+				tmp_sum <- tmp_df %>%
+					group_by(comp) %>%
+					summarize(mean = mean(`tmp_data_df[, im]`, na.rm=T),
+						  n=n(),
+						  naper = sum(!is.na(`tmp_data_df[, im]`))/n())
+				marker_df[ic, 'avg1'] <- tmp_sum[1,'mean']
+				marker_df[ic, 'avg2'] <- tmp_sum[2, 'mean']
+				marker_df[ic, 'diff'] <- tmp_sum[1, 'mean']-tmp_sum[2,'mean']
+				marker_df[ic, 'logfc'] <- log2(tmp_sum[1, 'mean']/tmp_sum[2, 'mean'])
+				marker_df[ic, 'per1'] <- tmp_sum[1, 'naper']
+				marker_df[ic, 'per2'] <- tmp_sum[2, 'naper']
+				tmp_test <- kruskal.test(`tmp_data_df[, im]`~comp, data = tmp_df)
+				marker_df[ic, 'pval'] <- tmp_test$p.value
+			} else {
+	#			cat("\t\tFisher exact test...\n")
+				tmp_table <- as.data.frame.matrix(table(tmp_df$comp, tmp_df[,ncol(tmp_df)]))
+				tmp_prop_table <- prop.table(as.matrix(tmp_table),margin=1)
+	#			print(im)
+	#			print(tmp_prop_table)
+	#			print(dim(tmp_table))
+	#			print(tmp_table)
+				if (sum(tmp_prop_table[1,]==max(tmp_prop_table[1,]))>1|sum(tmp_prop_table[2,]==max(tmp_prop_table[2,]))>1) {
+					marker_df[ic, 'avg1'] <- colnames(tmp_prop_table)[tmp_prop_table[1,]==max(tmp_prop_table[1,])][1]
+					marker_df[ic, 'avg2'] <- colnames(tmp_prop_table)[tmp_prop_table[2,]==max(tmp_prop_table[2,])][1]
+				} else {
+					marker_df[ic, 'avg1'] <- colnames(tmp_prop_table)[tmp_prop_table[1,]==max(tmp_prop_table[1,])]
+					marker_df[ic, 'avg2'] <- colnames(tmp_prop_table)[tmp_prop_table[2,]==max(tmp_prop_table[2,])]
+				}
+				cat(im, '\n')
+				tmp_test <- fisher.test(tmp_table, simulate.p.value=TRUE, B=1e7)#, workspace=2e9)
+				tmp_chitest <- chisq.test(tmp_table, correct=FALSE)
+				marker_df[ic, 'logfc'] <- sqrt(tmp_chitest$statistic/sum(tmp_table))
+				marker_df[ic, 'test'] <- 'Fisher\'s exact test'
+				na_mask <- str_detect(colnames(tmp_table), 'Missing')
+				if (sum(na_mask) == 1) {
+					marker_df[ic, 'per1'] <- 1-tmp_table['COI', na_mask]/sum(tmp_table['COI',])
+					marker_df[ic, 'per2'] <- 1-tmp_table['Others', na_mask]/sum(tmp_table['Others',])
+				}
+				marker_df[ic, 'pval'] <- tmp_test$p.value
+			}
+			ic <- ic + 1
+		}
+		marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
+		write.csv(marker_df, paste(output_prefix, cluster_comb[1, i], "_vs_", cluster_comb[2,i],'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""))
+	}
+#	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
+#	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""))
+}
+
+
 
 ###### Generate the marker table [Table S2]
 if (cluster_annotation_flag) {
