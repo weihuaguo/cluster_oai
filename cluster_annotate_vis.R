@@ -46,10 +46,10 @@ name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Inte
 demographic_flag <- FALSE
 outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
-one2one_annotation_flag <- TRUE
+one2one_annotation_flag <- FALSE
 numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- FALSE
-umap_vis_flag <- FALSE
+umap_vis_flag <- TRUE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
 
@@ -551,10 +551,14 @@ if (umap_vis_flag) {
 	umap_markers <- c('P01BMI','P01BPTOT','P01KPACDCV','V00CESD','V00COMORB','V00LFSFR','V00RFSFR','V00LKALNMT','V00RKALNMT','V00RKFHDEG',
 			  'V00RKFHDEG','V00VITACV','V00VITCCV','V00WOMADLL','V00WOMADLR','V00WOMKPL','V00WOMKPR','V00WOMSTFL','V00WOMSTFR',
 			  'V00WOMTSL','V00WOMTSR')
+	umap_markers <- c("V00AGE",  "P02SEX", "P02RACE", "P01BMI",'V00WOMKPL','V00WOMKPR','V00VITCCV', 'V00SUPVITC',"V00COMORB","V00HSPSS", "V00CESD", "V00HSMSS", 
+			  "P01LXRKOA", "P01RXRKOA", "V00EDCV", "V00INCOME")
+#	print(colnames(data_df)[str_detect(colnames(data_df), "MSS")]) # NOTE: where is the baseline KL grade?
+#	q(save = "no")
 
 	umap_plot_list <- vector(mode='list', length=length(umap_markers))
 	names(umap_plot_list) <- 1:length(umap_markers)
-	umap_plot_map <- matrix(1:length(umap_markers), ncol=7, nrow=3)
+	umap_plot_map <- matrix(1:length(umap_markers), ncol=8, nrow=2)
 	iu <- 1
 	rescale_fun <- function(x, to=c(0,1), from=NULL, probs=c(0.1,0.9)) {
 		xedges <- quantile(x, prob=probs, na.rm=T, names=FALSE)
@@ -574,8 +578,9 @@ if (umap_vis_flag) {
 			labs(color=ium) +
 			theme_classic()
 		marker_types <- sapply(tmp_umap_df, class)
+		print(marker_types)
 
-		if (marker_types[[ium]] == 'numeric') {
+		if (marker_types[[ium]] == 'numeric' | marker_types[[ium]] == "integer") {
 			umap_gg <- umap_gg + 
 				scale_color_viridis_c(option = "plasma", rescaler=rescale_fun)
 		ggsave(paste(output_prefix,"cluster",cluster_num,'_kmeans_direct_knn2imp_',input_id,'_',ium, '_umap_r.png', sep = ""), umap_gg, 
@@ -592,6 +597,7 @@ if (umap_vis_flag) {
 		umap_plot_list[[iu]] <- umap_gg
 		iu <- iu + 1
 	}
+	q(save = "no")
 	comb_umap_gg <- grid.arrange(grobs = umap_plot_list, layout_matrix = umap_plot_map)
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_selected_marker.png', sep = ""), comb_umap_gg, 
 	       dpi = png_res, width = 25.6, height = 6.4)
