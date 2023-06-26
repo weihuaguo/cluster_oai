@@ -313,7 +313,7 @@ if (cluster_annotation_flag) {
 		}
 	}
 	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
-	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""))
+	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = "")) # SD4
 }
 
 ##### Use Heatmap/dot plot to visualize the top feature markers [Fig. 2B&C]
@@ -446,7 +446,7 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 }
 
 ##### Volcano plot to visualize the markers of each cluster [Fig. S2x]
-if (volcano_flag) {
+if (volcano_flag) { # Fig S3
 	marker_annot_df <- as.data.frame(read_excel(paste(input_prefix, "cluster4_kmeans_direct_knn2imp_12112020_data_clean_marker_df_JM_ZH_v2.xlsx", sep = "")))
 #	marker_df <- read.csv(paste(input_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_marker_df.csv', sep = ""), row.names=1)
 	marker_annot_df$unique_label <- str_c(marker_annot_df$variable, "_", marker_annot_df$cluster)
