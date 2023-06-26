@@ -72,7 +72,8 @@ for (icf in cor_files) {
 write.csv(merge_cor_df, paste(rpf, "cor_merge.csv", sep = ""))
 write.csv(merge_p_df, paste(rpf, "pval_merge.csv", sep = ""))
 write.csv(merge_sn_df, paste(rpf, "sn_merge.csv", sep = ""))
-write.csv(merge_gath_df, paste(rpf, "gath_merge.csv", sep = ""))
+write.csv(merge_gath_df, paste(rpf, "gath_merge.csv", sep = "")) #SD10
+
 
 cat("Merge ")
 print(Sys.time()-mt)
