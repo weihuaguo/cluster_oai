@@ -56,6 +56,7 @@ cluster_outcome_analysis.R
 "Outputs: Fig 3, Fig S3"
 knee_replacement_cross_cluster.R
 "Outputs: Fig S4"
+TODO New Fig 4!
 
 ### Step 3: Supervised learning for clustering results
 predict_cluster_classic.py
@@ -66,7 +67,12 @@ predict_cluster_result_vis.R
 ### Step 4: Supervised learning for WOMAC total score
 #### Step 4.1: Correlation analysis of WOMAC total scores to all input variables (predictors)
 womts_correlation_calculation.py
-"Outputs: Data S5"
+"Outputs: Data S10"
 womts_correlation_visualization.R
 "Outputs: Fig 5A&B"
-
+direct_sup...
+""
+direct_sup
+""
+direct_sup..
+"Outputs: Data S11"
