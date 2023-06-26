@@ -27,8 +27,8 @@ concatenate_data_outcome.py
 "Outputs: outcome_all_dataframe_12112020_data_clean.csv, outcome_all_dataframe_12112020_data_clean.pkl"
 
 #### Step 1.5: Parse the total knee replacement data
-oai_outcome_v99.py
-"Outputs: xray_only_hr_between_knee_replacement_and_outcomes.csv, xray_visit_merge_patient_basic_outcome_information.csv"
+knee_replacement_extraction.py
+"Outputs: total_lastfollowup_merge_patient_basic_outcome_information.csv"
 
 #### Step 1.6: Align the outcome data into real time
 Extract the real dates: oai_time_vdate.py
@@ -47,9 +47,9 @@ impute_cluster_umap.py
 
 #### Step 2.2: Cluster annotation and visualization
 cluster_annotate_vis.R
-"Outputs: Fig 2, Fig S2, Table S2 (cluster_annotation_vis_outputs), Demographic table"
+"Outputs: Fig 2, Fig S3, Data S4 (cluster_annotation_vis_outputs), Demographic table"
 cluster_outcome_visualization.R
-"Outputs: Fig S2.5 (Outcome variables including TKR along all the visit times crossing clusters)"
+"Outputs: Fig S3 (Outcome variables including TKR along all the visit times crossing clusters)"
 
 #### Step 2.3: Survival analysis of outcomes (including total knee replacement TODO) crossing clusters
 cluster_outcome_analysis.R

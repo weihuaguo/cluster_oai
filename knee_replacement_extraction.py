@@ -67,4 +67,4 @@ for iid in total_df.index.values.tolist():
             if int(total_df.loc[iid, "right_time"]) < latest_time_day:
                 total_df.loc[iid, 'right_time'] = latest_time_day
 
-total_df.to_csv(resDir+"/total_lastfollowup_merge_patient_basic_outcome_information.csv")
+total_df.to_csv(resDir+"/total_lastfollowup_merge_patient_basic_outcome_information.csv") #SD7
