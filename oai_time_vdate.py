@@ -24,4 +24,4 @@ for itf in all_txt_files:
     tmp_df = pd.read_csv(itf, sep = "|", index_col=0)
     if any(tmp_df.columns.str.contains("DATE")):
         all_pat_info=pd.merge(all_pat_info, tmp_df.loc[:,tmp_df.columns.str.contains("VDATE")], left_index=True, right_index=True, how='left')
-all_pat_info.to_csv(resDir+"/real_dates.csv")
+all_pat_info.to_csv(resDir+"/real_dates.csv") # SD5
