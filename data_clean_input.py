@@ -75,4 +75,4 @@ rm_var_id=vars_check_df.index[vars_check_df['na_rel_num']>clean_cutoff]
 sub_clean_data_df=sub_data_df.drop(rm_sbj_id)
 sub_clean_data_df=sub_clean_data_df.drop(rm_var_id,axis=1)
 sub_clean_data_df.to_pickle(resDir+"/input_direct_merge_dataframe_"+exp_id+"_sbj_clean_"+clean_co+".pkl")
-sub_clean_data_df.to_csv(resDir+"/input_direct_merge_dataframe_"+exp_id+"_sbj_clean_"+clean_co+".csv")
+sub_clean_data_df.to_csv(resDir+"/input_direct_merge_dataframe_"+exp_id+"_sbj_clean_"+clean_co+".csv") # SD2
