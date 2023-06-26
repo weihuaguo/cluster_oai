@@ -154,4 +154,4 @@ for iop in outcome_patterns:
     tmp_v00_surv['tm'] = tmp_v00_surv['tm'].astype(int)
     tmp_v00_surv['ty'] = (tmp_v00_surv['tstop'] - tmp_v00_surv['tstart'])/np.timedelta64(1, 'Y')
     tmp_v00_surv['ty'] = tmp_v00_surv['ty'].astype(float)
-    tmp_v00_surv.to_csv(surv_dir+"/"+iop+"_v00_real_time_survival_dataframe.csv")
+    tmp_v00_surv.to_csv(surv_dir+"/"+iop+"_v00_real_time_survival_dataframe.csv") #SD6
