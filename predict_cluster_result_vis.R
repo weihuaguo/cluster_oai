@@ -43,7 +43,7 @@ if (merge_score_flag) {
 			c <- c + 1
 		}
 	}
-	write.csv(merge_gath_score, paste(rpf, "merge_score_dataframe.csv", sep = ""))
+	write.csv(merge_gath_score, paste(rpf, "merge_score_dataframe.csv", sep = "")) #SD9
 } else {
 	merge_gath_score <- read.csv(paste(rpf, "merge_score_dataframe.csv", sep = ""), row.names = 1)
 }
