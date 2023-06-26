@@ -50,11 +50,11 @@ st = dt.now()
 mainDir = "/mnt/sda1/OAI_Data"
 dataDir = mainDir + "/ASCII"
 resDir = mainDir + "/data_summary"
-clst_dir = mainDir + "/kmean_cluster_01012020"
+clst_dir = mainDir + "/kmean_cluster_12252020"
 exp_id = "12112020_data_clean"
 clean_co = "v25"
 pca_umap = True
-cluster_num = 9
+cluster_num = 4
 plot_prefix = clst_dir+'/clean_'+clean_co+'_'
 
 enroll_txt = "Enrollees.txt"
@@ -73,7 +73,7 @@ print("Start to imputate the NaN...")
 imputer = KNNImputer(n_neighbors=2, weights="uniform")
 imp_oh_merge_data = imputer.fit_transform(oh_merge_df)
 imp_oh_merge_df = pd.DataFrame(imp_oh_merge_data, columns = oh_merge_df.columns, index=oh_merge_df.index)
-imp_oh_merge_df.to_pickle(resDir+'/onehotspot_merge_dataframe_'+exp_id+'_'+clean_co+'_without_na_cols_imp.pkl')
+imp_oh_merge_df.to_pickle(resDir+'/onehotspot_merge_dataframe_'+exp_id+'_'+clean_co+'_without_na_cols_imp.pkl') # SD3
 print("Imputation cost: "+str(dt.now()-ist))
 raise ValueError()
 
@@ -86,30 +86,13 @@ pca = PCA(n_components=30)
 pca_pcs = pca.fit_transform(scaled_oh_data)
 pc_elbow_df = pd.DataFrame({'var':pca.explained_variance_ratio_, 'PC': range(30)})
 sn.scatterplot(data = pc_elbow_df, x = "PC", y = "var", linewidth=0)
-plt.savefig(plot_prefix+'pca_check_elbow_plot.png', dpi=300)
+plt.savefig(plot_prefix+'pca_check_elbow_plot.png', dpi=300) # Fig S2A
 plt.clf()
 plt.close()
 
 umap_red = umap.UMAP()
 umap_emb = umap_red.fit_transform(pca_pcs[:,:16])
 print("UMAP cost: "+str(dt.now()-ust))
-
-kmst = dt.now()
-print("Start to clustering with KMeans...")
-estimator = KMeans(init='random', n_clusters=12, n_init=10)
-cluster_est = estimator.fit(scaled_oh_data)
-cluster_res = cluster_est.predict(scaled_oh_data)
-print("KMeans with random initial cost: "+str(dt.now()-kmst))
-
-cls_rd_res = pd.DataFrame(umap_emb, columns = ["UMAP1", "UMAP2"], index = oh_merge_df.index)
-cls_rd_res['kmean_random'] = cluster_res
-cls_rd_res.to_excel(plot_prefix+'kmean_random_umap_res.xlsx')
-cls_rd_res['kmean_random'] = cls_rd_res['kmean_random'].astype("str")
-
-sn.scatterplot(data = cls_rd_res, x = "UMAP1", y = "UMAP2", hue = "kmean_random", linewidth=0, s=0.2)
-plt.savefig(plot_prefix+'kmean_random_umap.png', dpi=300)
-plt.clf()
-plt.close()
 
 kmst = dt.now()
 cls_col = "kmean_pca"
