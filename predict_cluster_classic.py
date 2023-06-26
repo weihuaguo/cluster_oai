@@ -80,7 +80,7 @@ importance = rfr.feature_importances_
 imp_df = pd.DataFrame(importance, index = tmp_X.columns, columns = ['sig'])
 imp_df['varname'] = tmp_X.columns
 imp_df['importance_source'] = importance_source
-imp_df.to_excel(rpf+"importance_dataframe.xlsx")
+imp_df.to_excel(rpf+"importance_dataframe.xlsx") # SD8
 #rmse, cor, rele, cvn, impn, model, scores = list(), list(), list(), list(), list(), list(), list()
 mrpf = rpf + model_name + "_"
 for iimp in importance_number:
