@@ -160,6 +160,6 @@ for icol in col_oi:
     print("\tTotal time cost "+str(dt.now()-st)+"\n")
 
 print(direct_merge_df)
-direct_merge_df.to_csv(resDir+"/input_direct_merge_dataframe_"+exp_id+".csv")
+direct_merge_df.to_csv(resDir+"/input_direct_merge_dataframe_"+exp_id+".csv") # SD1
 direct_merge_df.to_pickle(resDir+"/input_direct_merge_dataframe_"+exp_id+".pkl")
 print('Total time cost '+str(dt.now()-st))
