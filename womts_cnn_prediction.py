@@ -48,7 +48,6 @@ importance_source = "random" # "randomforest"/"linear"/"random"
 importance_filter = "cluster"
 importance_number = range(25,26)
 test_size = 0.5
-n_add_layers = [0, 10, 20]
 dnm = 3/4 #1/3, 1/2, 2/3, 3/4, 0.9
 ln_rt = 0.001 # 1, 0.1, 0.01, 0.001
 
