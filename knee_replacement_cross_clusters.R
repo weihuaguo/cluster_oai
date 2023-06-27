@@ -63,22 +63,22 @@ cohort_cts <- kr_umap_df %>%
 	group_by(V00COHORT, Cluster) %>%
 	summarise(n = n())
 
-all_gg <- ggplot(cohort_cts, aes(x = Cluster, y = n, color = V00COHORT, fill = V00COHORT)) +
+all_gg <- ggplot(cohort_cts, aes(x = V00COHORT, y = n, color = Cluster, fill = Cluster)) +
 	geom_bar(position="stack", stat="identity") +
-	scale_color_brewer(palette = "Dark2") +
-	scale_fill_brewer(palette = "Dark2") +
-	labs(x = "Cluster", y = "Number of patients", color = "Cohort", fill = "Cohort") +
+	scale_color_brewer(palette = "Spectral") +
+	scale_fill_brewer(palette = "Spectral") +
+	labs(x = "Cohort", y = "Number of patients", color = "Cluster", fill = "Cluster") +
 	coord_flip() +
 	theme_bw()
 ggsave(paste(data_dir, surv_folder, "/cluster_", cluster_num, "_kmean_pca_cohort_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 2.7)
-all_gg <- ggplot(cohort_cts, aes(x = Cluster, y = n, color = V00COHORT, fill = V00COHORT)) +
+all_gg <- ggplot(cohort_cts, aes(x = V00COHORT, y = n, color = Cluster, fill = Cluster)) +
 	geom_bar(position="fill", stat="identity") +
-	scale_color_brewer(palette = "Dark2") +
-	scale_fill_brewer(palette = "Dark2") +
-	labs(x = "Cluster", y = "Proportion of patients", color = "Cohort", fill = "Cohort") +
+	scale_color_brewer(palette = "Spectral") +
+	scale_fill_brewer(palette = "Spectral") +
+	labs(x = "Cohort", y = "Proportion of patients", color = "Cluster", fill = "Cluster") +
 	coord_flip() +
 	theme_bw()
-ggsave(paste(data_dir, surv_folder, "/cluster_", cluster_num, "_kmean_pca_cohort_rel_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 2.7)
+ggsave(paste(data_dir, surv_folder, "/cluster_", cluster_num, "_kmean_pca_cohort_rel_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 2.7) # Fig 4
 
 ##### TKR crossing clusters ####
 kr_umap_df$Cluster <- factor(kr_umap_df$Cluster, 
