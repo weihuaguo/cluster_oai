@@ -23,6 +23,7 @@ ann_xlsx = "AllClinical00_V5_column_annotation_WG_clean.xlsx"
 enroll_txt = "Enrollees.txt"
 
 data_df=pd.read_pickle(resDir+"/input_direct_merge_dataframe_"+exp_id+".pkl")
+print(data_df.shape)
 all_col_oi = pd.read_excel(mainDir+'/'+ann_xlsx, sheet_name='Baseline', index_col='Variables')
 all_pat_info = pd.read_csv(dataDir+"/"+enroll_txt, sep='|', index_col=0)
 
@@ -59,6 +60,8 @@ print("Checking subjects...")
 sbj_cols=['na_num', 'na_rel_num']
 sbj_check_df=pd.DataFrame(index=data_df.index, columns=sbj_cols)
 sub_data_df=data_df[[i.upper() for i in all_col_oi.index.tolist()]]
+sub_data_df.to_pickle(resDir+"/input_direct_merge_dataframe_of_interest_"+exp_id+".pkl") # SD1
+
 for isbj, ir in sub_data_df.iterrows():
     tmp_num_na=sum(ir.isna())
     tmp_obj_na=ir.str.contains("Missing").sum()
@@ -71,8 +74,13 @@ fig.savefig(resDir+'/subject_check_na_rel_hist_'+exp_id+'.png')
 plt.close()
 
 rm_sbj_id=sbj_check_df.index[sbj_check_df['na_rel_num']>0.5]
+print(rm_sbj_id.shape)
 rm_var_id=vars_check_df.index[vars_check_df['na_rel_num']>clean_cutoff]
+print(rm_var_id.shape)
 sub_clean_data_df=sub_data_df.drop(rm_sbj_id)
 sub_clean_data_df=sub_clean_data_df.drop(rm_var_id,axis=1)
+print(data_df.shape)
+print(sub_data_df.shape)
+print(sub_clean_data_df.shape)
 sub_clean_data_df.to_pickle(resDir+"/input_direct_merge_dataframe_"+exp_id+"_sbj_clean_"+clean_co+".pkl")
 sub_clean_data_df.to_csv(resDir+"/input_direct_merge_dataframe_"+exp_id+"_sbj_clean_"+clean_co+".csv") # SD2
