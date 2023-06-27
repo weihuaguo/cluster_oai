@@ -4,7 +4,7 @@
 
 ## Script descriptions
 ### Step 0: Learn that each file includes what variables
-sum_data.py -- Done
+sum_data.py
 "Outputs: file_sum_excel.xlsx, file_sum_dictionary.pkl, col_sum_excel.xlsx, col_sum_dictionary.pkl"
 
 ### Step 1: Clean the data
@@ -53,10 +53,9 @@ cluster_outcome_visualization.R
 
 #### Step 2.3: Survival analysis of outcomes crossing clusters
 cluster_outcome_analysis.R
-"Outputs: Fig 3, Fig S3"
+"Outputs: Fig 3, Fig S4, Fig 4, Fig S5"
 knee_replacement_cross_cluster.R
-"Outputs: Fig S4"
-TODO New Fig 4!
+"Outputs: Fig 4A, Fig S5"
 
 ### Step 3: Supervised learning for clustering results
 predict_cluster_classic.py
@@ -67,12 +66,16 @@ predict_cluster_result_vis.R
 ### Step 4: Supervised learning for WOMAC total score
 #### Step 4.1: Correlation analysis of WOMAC total scores to all input variables (predictors)
 womts_correlation_calculation.py
-"Outputs: Data S10"
+"Outputs: Data S11"
 womts_correlation_visualization.R
 "Outputs: Fig 5A&B"
-direct_sup...
-""
-direct_sup
-""
-direct_sup..
-"Outputs: Data S11"
+#### Step 4.2: Selection of optimal machine learning model for WOMTS prediction
+womts_super_learning_prediction.py
+"Outputs: Fig 6B&C"
+#### Step 4.3: Implementation of WOMTS prediction with CNN model and random selection of input variables
+womts_cnn_prediction.py/womts_cnn_prediction_batch.sh
+"Outputs: prediction&measurements for each test, accuracy for each test, selected variables"
+womts_cnn_prediction_result_merge.py
+"Outputs: Data S12"
+womts_cnn_prediction_result_vis.R
+"Outputs: Fig 6E"
