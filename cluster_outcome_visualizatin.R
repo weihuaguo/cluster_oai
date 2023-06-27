@@ -150,7 +150,7 @@ for (i in 1:nrow(rtd_df)) {
 #	print(head(rty_vconv_df))
 #	print(tmp_yr)
 }
-write.csv(rty_vconv_df, paste(data_dir, "outcome_real_date_conversion_year.csv", sep = ""))
+write.csv(rty_vconv_df, paste(data_dir, "outcome_real_date_conversion_year.csv", sep = "")) # SD6
 write.csv(rtd_df/365, paste(data_dir, "outcome_real_date_year_decimal.csv", sep = ""))
 rty_df <- read.csv(paste(data_dir, "outcome_real_date_conversion_year.csv", sep = ""), header = T, row.names = 1)
 
