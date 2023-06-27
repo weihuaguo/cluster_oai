@@ -23,9 +23,6 @@ suppressMessages(library(rstatix))
 suppressMessages(library(broom))
 suppressMessages(library(forestmodel))
 
-#clst_dir <- "/mnt/sda1/OAI_Data/ASCII_Plot_05282020/cluster_07102020/"
-#data_dir <- "/mnt/sda1/OAI_Data/ASCII_Plot_05282020/"
-#clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_01012021/"
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
 data_dir <- "/mnt/sda1/OAI_Data/data_summary/"
 
@@ -42,10 +39,9 @@ kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
-compare_flag <- FALSE
-pairwise_flag <- FALSE
+compare_flag <- TRUE
 surv_flag <- FALSE
-surv_cohort_flag <- TRUE
+surv_cohort_flag <- FALSE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -107,7 +103,8 @@ if (compare_flag) {
 			scale_color_brewer(palette = "Spectral") +
 			stat_compare_means(aes(group = Cluster), label = "p.signif") +
 			labs(x = "Time (year)", y = out_name, color = "Cluster") +
-			theme_bw()
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1))
 		ggsave(paste(tmp_pf, "boxplot_jitter.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
 
 		stat_df <- year_data %>%
@@ -133,7 +130,9 @@ if (compare_flag) {
 			geom_point(size = 1.8) +
 			scale_color_brewer(palette = "Spectral") +
 			labs(y = y_name, color = "Cluster", x = "Time (year)", title = out_name) +
-			theme_bw()
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 		ggsave(paste(tmp_pf, "mean_se_dot_line.png", sep = ""), time_gg, dpi = png_res, width = 6, height = 4)
 
 
@@ -148,7 +147,9 @@ if (compare_flag) {
 				scale_fill_brewer(palette = "RdYlBu") +
 				facet_grid(.~ytyr) +
 				labs(x = "Cluster", y = "Number of knees", color = out_name, fill = out_name) +
-				theme_bw()
+				theme_bw() +
+				theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 			ggsave(paste(tmp_pf, "bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
 			all_gg <- ggplot(cts_df, aes(x = Cluster, y = n, color = value, fill = value)) +
 				geom_bar(position="fill", stat="identity") +
@@ -156,7 +157,8 @@ if (compare_flag) {
 				scale_fill_brewer(palette = "RdYlBu") +
 				facet_grid(.~ytyr) +
 				labs(x = "Cluster", y = "Proportion of knees", color = out_name, fill = out_name) +
-				theme_bw()
+				theme_bw() +
+				theme(axis.text.x = element_text(angle = 45, hjust = 1))
 			ggsave(paste(tmp_pf, "rel_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
 
 		}
@@ -168,10 +170,6 @@ if (compare_flag) {
 		}
 		c <- c+1
 	}
-} 
-# q(save = "no")
-
-if (pairwise_flag) {#TOOOOO time consuming
 	all_year_data$outcome_var <- str_sub(all_year_data$vid, 4, -1)
 	c <- 0
 	for (ic in unique(all_year_data$Cluster)) {
@@ -198,7 +196,6 @@ if (pairwise_flag) {#TOOOOO time consuming
 
 	padj_alpha <- c("ns" = 0.05, "*" = 0.5, "**" = 0.75, "***" = 0.9, "****" = 1.0)
 	padj_size <- c("ns" = 1, "*" = 4, "**" = 5, "***" = 6, "****" = 7)
-	# TODO change color scheme and color scale to make it clear
 	dot_gg <- ggplot(merge_year_stat, aes(x = group1, y = ytyr)) +
 		geom_point(aes(color = estimate, size = p.adj.signif, alpha = p.adj.signif)) +
 		scale_color_distiller(palette = "RdYlBu") +
@@ -206,9 +203,11 @@ if (pairwise_flag) {#TOOOOO time consuming
 		scale_size_manual(values = padj_size) +
 		scale_alpha_manual(values = padj_alpha) +
 		labs(x = "Cluster", y = "Time", color = "Difference", size = "Statistical significance\n(Adjusted p-value)", alpha = "Statistical significance\n(Adjusted p-value)") +
-		theme_bw()
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 	ggsave(paste(data_dir, surv_folder,  "/outcome_cluster_marker_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 15, height = 5)
-}# TOOOOOOOOOOOOO
+}
 
 if (surv_cohort_flag) {
 	prog_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = paste(surv_type, 'real_time_survival_dataframe.csv', sep = "_"))
@@ -253,7 +252,7 @@ if (surv_cohort_flag) {
 				      legend.labs = levels(merge_prog$V00COHORT), 
 				      palette = "Set1", ylim = ylim) + 
 			labs(title = out_name, x = "Time (day)", color = "Cohort") 		
-		png(paste(tmp_pf, 'day_kmplot.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+		png(paste(tmp_pf, 'day_kmplot.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in') #Fig S4
 		print(tmp_lgg)
 		gar <- dev.off()
 
@@ -261,7 +260,7 @@ if (surv_cohort_flag) {
 		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
 				      legend = "right", legend.title = "Cluster") + 
 			labs(title = paste(out_name, "Within incidence cohort"))
-		png(paste(tmp_pf, 'wi_incidence_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+		png(paste(tmp_pf, 'wi_incidence_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in') #Fig 4
 		print(tmp_lgg)
 		gar <- dev.off()
 
@@ -269,7 +268,7 @@ if (surv_cohort_flag) {
 		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
 				      legend = "right", legend.title = "Cluster") + 
 			labs(title = paste(out_name, "Within progression cohort"))
-		png(paste(tmp_pf, 'wi_progression_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in')
+		png(paste(tmp_pf, 'wi_progression_kmplot.png', sep = ""), res = png_res, width = 8, height = 4, units = 'in') #Fig 4
 		print(tmp_lgg)
 		gar <- dev.off()
 
@@ -284,7 +283,6 @@ if (surv_cohort_flag) {
 		write.csv(summary(tmp_cox)$coefficients, paste(tmp_pf, 'day_cox.csv', sep = ""))
 
 		tmp_fgg <- ggforest(tmp_cox)
-		print("FUCK R")
 		png(paste(tmp_pf, 'day_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 		print(tmp_fgg)
 		gar <- dev.off()
@@ -308,17 +306,11 @@ if (surv_flag) {
 			tmp_prog <- read.csv(paste(data_dir, surv_folder, "/", iprog, sep = ""), header = T, row.names = 1)
 		}
 		out_name <- str_split_fixed(iprog, "_", n = 2)[1]
-	#	print(dim(tmp_prog))
-	#	print(out_name)
-	#	q(save = "no")
 		clean_prog <- tmp_prog
-	#	print(dim(clean_prog))
 		merge_prog <- merge(clean_prog, umap_df, by = "ID", all.x = T)
 		merge_prog$dstart <- as.numeric(merge_prog$dstart)
 		merge_prog$dstop <- as.numeric(merge_prog$dstop)
 
-	#	print(dim(merge_prog))
-	#	print(head(merge_prog))
 		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_", surv_type, "_", sep = "")
 		if (str_detect(iprog, "JSW")) {
 			ylim <- c(0.5, 1)
@@ -400,7 +392,6 @@ if (surv_flag) {
 		year_prog$tm_round <- ifelse(year_prog$half_year_mod <= 3, year_prog$tm-year_prog$year_mod, 
 					     year_prog$tm+12-year_prog$year_mod)
 		year_prog$tyr <- year_prog$tm_round/12
-	#	print(head(year_prog))
 		tmp_lfit <- survfit(Surv(tyr, event) ~ Cluster, data = year_prog, id = ID)
 		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = p_mon_pos, ggtheme = theme_bw(), legend = "right", 
 				      legend.labs = levels(year_prog$Cluster), 
