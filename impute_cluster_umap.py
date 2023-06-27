@@ -12,7 +12,7 @@ def clst_metric(df, df_name, clst_nums = range(2,21)):
     for i in clst_nums:
         tmp_index = df_name+'_C'+str(i)
         score_dict[tmp_index] = {}
-        km = KMeans(n_clusters=i, random_state=0).fit(df)
+        km = KMeans(n_clusters=i, init='k-means++').fit(df)
         preds = km.predict(df)
         print("Score for number of cluster(s) {}: {}".format(i,km.score(df)))
         score_dict[tmp_index]['km_scores'] = -km.score(df)
@@ -75,7 +75,6 @@ imp_oh_merge_data = imputer.fit_transform(oh_merge_df)
 imp_oh_merge_df = pd.DataFrame(imp_oh_merge_data, columns = oh_merge_df.columns, index=oh_merge_df.index)
 imp_oh_merge_df.to_pickle(resDir+'/onehotspot_merge_dataframe_'+exp_id+'_'+clean_co+'_without_na_cols_imp.pkl') # SD3
 print("Imputation cost: "+str(dt.now()-ist))
-raise ValueError()
 
 print("Start to scale the data...")
 scaled_oh_data = StandardScaler().fit_transform(imp_oh_merge_data)
@@ -97,10 +96,30 @@ print("UMAP cost: "+str(dt.now()-ust))
 kmst = dt.now()
 cls_col = "kmean_pca"
 print("Start to clustering with KMeans with PCA...")
-
 pca = PCA(n_components=16).fit(scaled_oh_data)
 pca.fit(scaled_oh_data)
 pca_score = pca.transform(scaled_oh_data)
+
+kmean_score_df = clst_metric(pca_score, df_name="direct_knn2imp")
+kmean_score_df.to_excel(clst_dir+"/kmeans_metric_pca_score_direct_knn2imp_"+exp_id+".xlsx")
+
+kmean_score_df['c'] = range(2,21)
+kmean_score_df.set_index('c', inplace=True, drop = False)
+kmean_score_df['km_scores'].plot.line()
+plt.savefig(plot_prefix+'cluster'+str(cluster_num)+'_pca_score_km_score_elbow.png', dpi=300)
+plt.clf()
+plt.close()
+
+kmean_score_df['silhouette_score'].plot.line()
+plt.savefig(plot_prefix+'cluster'+str(cluster_num)+'_pca_score_silhouette_score_elbow.png', dpi=300)
+plt.clf()
+plt.close()
+
+kmean_score_df['davies_bouldin_score'].plot.line()
+plt.savefig(plot_prefix+'cluster'+str(cluster_num)+'_pca_score_db_score_elbow.png', dpi=300)
+plt.clf()
+plt.close()
+
 estimator = KMeans(init='k-means++', n_clusters=cluster_num)
 cluster_est = estimator.fit(pca_score)
 cluster_res = cluster_est.predict(pca_score)
