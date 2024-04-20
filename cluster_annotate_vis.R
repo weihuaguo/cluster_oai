@@ -24,6 +24,8 @@ suppressMessages(library(broom))
 suppressMessages(library(boot))
 suppressMessages(library(table1))
 suppressMessages(library(colorspace))
+suppressMessages(library(ggforce))
+
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
 data_dir <- "/mnt/sda1/OAI_Data/data_summary/"
@@ -49,9 +51,10 @@ cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
 numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- FALSE
-umap_vis_flag <- TRUE
+umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
+supplement_flag <- TRUE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -685,5 +688,51 @@ if (violin_vis_flag) {
 		}
 		}
 	}
+}
 
+if (supplement_flag) {
+	var_ann <- as.data.frame(read_excel(paste(data_dir, "AllClinical00_V6_column_annotation.xlsx", sep = "/"), sheet = "Baseline"))
+	print(head(var_ann))
+	sup_var_ann <- var_ann[var_ann$Sup == "Yes",]
+	suppf <- paste(data_dir, "/supp_analysis/supp_analysis_", sep= "")
+	print(head(marker_df))
+
+	non_supp_marker_df <- marker_df[!(marker_df$variable %in% sup_var_ann$Variables),]
+	non_supp_marker_df$var_type <- ifelse(is.na(non_supp_marker_df$diff), "Categorical", "Numerical")
+	non_supp_marker_df <- non_supp_marker_df %>% add_significance('adjp')
+	select_marker_df <- non_supp_marker_df %>% filter(cluster == 0, adjp.signif != "ns") %>% group_by(var_type)%>% top_n(wt = abs(logfc), n = 25)
+	print(head(select_marker_df))
+	select_non_supp_marker_df <- non_supp_marker_df[non_supp_marker_df$variable %in% select_marker_df$variable,]
+
+	dot_gg <- ggplot(select_non_supp_marker_df, aes(x = name, y = variable)) +
+		geom_point(aes(color = logfc, size = adjp.signif)) +
+		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
+		scale_size_manual(values = c("ns" = 0.1, "*" = 1, "**" = 2, "***" = 4, "****" = 6)) +
+		labs(color = 'log2FC', size = 'Adjusted\nstatistic\nsignificance', y = "Cluster", x = "Nutrition related variables") +
+		facet_row(~var_type, scales = "free", space = "free") +
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
+	ggsave(paste(suppf, "nonsupp_marker_dotplot.png", sep = ""), dot_gg, dpi = 300, width = 12, height = 12)
+
+	print(head(non_supp_marker_df))
+
+	supp_marker_df <- marker_df[marker_df$variable %in% sup_var_ann$Variables,]
+	supp_marker_df <- merge(supp_marker_df, sup_var_ann, by.x = "variable", by.y = "Variables", all.x = T)
+	supp_marker_df$info_label <- str_split_fixed(supp_marker_df$Label, "\\\n", n = 2)[1,]
+	supp_marker_df$var_type <- ifelse(is.na(supp_marker_df$diff), "Categorical", "Numerical")
+	supp_marker_df$Resource <- ifelse(str_detect(supp_marker_df$Label, "from food"), "From food", 
+				    ifelse(str_detect(supp_marker_df$Label, "from vitamin"), "From suppplements", "Frequency"))
+	supp_marker_df <- supp_marker_df %>% add_significance('adjp')
+
+	dot_gg <- ggplot(supp_marker_df, aes(x = name, y = variable)) +
+		geom_point(aes(color = logfc, size = adjp.signif)) +
+		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
+		scale_size_manual(values = c("ns" = 0.1, "*" = 1, "**" = 2, "***" = 4, "****" = 6)) +
+		labs(color = 'log2FC', size = 'Adjusted\nstatistic\nsignificance', y = "Cluster", x = "Nutrition related variables") +
+		facet_col(~Resource+var_type, scales = "free_y", space = "free") +
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right")
+	ggsave(paste(suppf, "marker_dotplot.png", sep = ""), dot_gg, dpi = 300, width = 9, height = 21)
+
+	print(head(supp_marker_df))
 }
