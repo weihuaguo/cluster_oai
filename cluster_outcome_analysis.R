@@ -273,8 +273,20 @@ if (compare_vis_flag) {
 			theme(axis.text.x = element_text(angle = 45, hjust = 1), 
 			      plot.margin = unit(c(0.1,0.1,0.1,1.28), "cm")
 			)
-
 		ggsave(paste(data_dir, surv_folder,  "/", iv, "_outcome_cluster_marker_avg_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 6, height = 5)	
+		dot_gg <- ggplot(tmp_plot_df, aes(x = group1, y = ytyr)) +
+			geom_point(aes(fill=estimate, size = p.adj.signif), colour="black",pch=21) +
+			scale_fill_distiller(palette = "RdYlBu") +
+			facet_grid(.~side) +
+			scale_size_manual(values = padj_size) +
+			labs(x = "Cluster", y = "Time", fill = paste("Average of", iv),
+			     size = "Statistical significance\n(Adjusted p-value)") +
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+			      plot.margin = unit(c(0.1,0.1,0.1,1.28), "cm")
+			)
+		ggsave(paste(data_dir, surv_folder,  "/", iv, "_outcome_cluster_marker_diff_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 6, height = 5)	
+
 	}
 }
 
