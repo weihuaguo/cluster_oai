@@ -13,6 +13,7 @@ suppressMessages(library(stringr))
 suppressMessages(library(viridis))
 suppressMessages(library(ggpubr))
 suppressMessages(library(ggrepel))
+suppressMessages(library(ggridges))
 suppressMessages(library(viridis))
 suppressMessages(library(EnhancedVolcano))
 suppressMessages(library(gridExtra))
@@ -25,6 +26,10 @@ suppressMessages(library(forestmodel))
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
 data_dir <- "/mnt/sda1/OAI_Data/data_summary/"
+
+clst_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/kmean_cluster_12252020/"
+data_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/data_summary/"
+
 
 exp_id <- "kmean_pca_umap"
 input_id <- "12112020_data_clean"
@@ -39,7 +44,8 @@ kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
-compare_flag <- TRUE
+compare_flag <- FALSE
+compare_vis_flag <- TRUE
 surv_flag <- FALSE
 surv_cohort_flag <- FALSE
 
@@ -84,9 +90,38 @@ if (compare_flag) {
 					     year_data$tm+12-year_data$year_mod)
 		year_data$tyr <- year_data$tm_round/12
 		year_data$ytyr <- str_c("Y", year_data$tyr)
-	#	print(head(year_data))
 
-		
+		year_data <- year_data %>% 
+			group_by(tyr, Cluster) %>%
+			mutate(n = n(), avg = mean(value, na.rm = T))
+#		print(head(year_data))
+#		print(unique(year_data$ytyr))
+#		print(min(year_data$n))
+		plot_data <- year_data[year_data$n > 100,]
+
+		cat("Basic distribution\n")
+		xs_year <- ggplot(plot_data, aes(x = value, y = ytyr, fill = ytyr)) +
+			geom_density_ridges(quantile_lines = FALSE, alpha = 0.6, jittered_points = TRUE,
+					    point_size = 0.4, point_alpha = 0.2, position = position_raincloud(adjust_vlines = TRUE, width = 2)
+					    ) +
+			geom_vline(aes(xintercept = avg), color = "red") +
+			facet_grid(ytyr~Cluster, scales = "free") +
+			labs(x = out_name, y = "Visit year", fill = "Visit year") +
+			theme_bw()
+		ggsave(paste(tmp_pf, "ridge_cross_year.png", sep = ""), dpi = png_res, width = 12, height = 1.5*length(unique(plot_data$ytyr)))
+
+		xc_year <- ggplot(plot_data, aes(x = value, y = Cluster, fill = Cluster)) +
+			geom_density_ridges(quantile_lines = FALSE, alpha = 0.6, jittered_points = TRUE,
+					    point_size = 0.4, point_alpha = 0.2, position = position_raincloud(adjust_vlines = TRUE, width = 2)
+					    ) +
+			geom_vline(aes(xintercept = avg), color = "red") +
+			facet_grid(Cluster~ytyr, scales = "free") +
+			labs(x = out_name, y = "Cluster", fill = "Cluster") +
+			theme_bw() +
+			theme(strip.text.y = element_blank(), 
+			  strip.background = element_blank())
+		ggsave(paste(tmp_pf, "ridge_cross_cluster.png", sep = ""), dpi = png_res, width = 12, height = 1.5*length(unique(plot_data$Cluster)))
+	
 		year_sum <- year_data %>%
 			group_by(Cluster, ytyr) %>%
 			summarize(n = n()) %>%
@@ -120,7 +155,7 @@ if (compare_flag) {
 				    mean_se_upper = mean+se,
 				    mean_se_lower = mean-se)
 		
-	#	print(head(stat_df))
+#		print(head(stat_df))
 		##### Fig S3x+1
 		stat_df$tyr <- as.numeric(str_sub(stat_df$ytyr, -1, -1))
 		y_name <- expression(paste(Mean%+-%SEM, sep = ""))
@@ -171,6 +206,10 @@ if (compare_flag) {
 		c <- c+1
 	}
 	all_year_data$outcome_var <- str_sub(all_year_data$vid, 4, -1)
+	write.csv(all_year_data, paste(data_dir, surv_folder, "/outcome_cluster_markers_all_data.csv", sep = ""))
+	all_year_data_sum <- all_year_data %>%
+		group_by(ytyr, outcome_var, Cluster) %>%
+		summarize(avg = mean(value, na.rm = T))
 	c <- 0
 	for (ic in unique(all_year_data$Cluster)) {
 		cat(ic, "\n")
@@ -191,6 +230,7 @@ if (compare_flag) {
 
 	print(head(all_year_data))
 	print(head(merge_year_stat))
+	merge_year_stat <- merge(merge_year_stat, all_year_data_sum, by.x = c("ytyr", "outcome_var", "group1"), by.y = c("ytyr", "outcome_var", "Cluster"), all.x = T)
 	write.csv(merge_year_stat, paste(data_dir, surv_folder, "/outcome_cluster_markers_wilcox_result.csv", sep = ""))
 
 
@@ -208,6 +248,37 @@ if (compare_flag) {
 
 	ggsave(paste(data_dir, surv_folder,  "/outcome_cluster_marker_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 15, height = 5)
 }
+
+if (compare_vis_flag) {
+	all_year_data <- read.csv(paste(data_dir, surv_folder, "/outcome_cluster_markers_all_data.csv", sep = ""), header = T, row.names = 1)
+	merge_year_stat <- read.csv(paste(data_dir, surv_folder, "/outcome_cluster_markers_wilcox_result.csv", sep = ""), header = T, row.names = 1)
+	print(head(all_year_data))
+	print(head(merge_year_stat))
+	merge_year_stat$side <- str_sub(merge_year_stat$outcome_var, -1,-1)
+	merge_year_stat$varname <- str_sub(merge_year_stat$outcome_var, 1,-2)
+	for (iv in unique(merge_year_stat$varname)) {
+		cat(iv, "\n")
+		tmp_plot_df <- merge_year_stat[merge_year_stat$varname == iv,]
+
+		padj_alpha <- c("ns" = 0.05, "*" = 0.5, "**" = 0.75, "***" = 0.9, "****" = 1.0)
+		padj_size <- c("ns" = 1, "*" = 4, "**" = 5, "***" = 6, "****" = 7)
+		dot_gg <- ggplot(tmp_plot_df, aes(x = group1, y = ytyr)) +
+			geom_point(aes(fill=avg, size = p.adj.signif), colour="black",pch=21) +
+			scale_fill_distiller(palette = "RdYlBu") +
+			facet_grid(.~side) +
+			scale_size_manual(values = padj_size) +
+			labs(x = "Cluster", y = "Time", fill = paste("Average of", iv),
+			     size = "Statistical significance\n(Adjusted p-value)") +
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+			      plot.margin = unit(c(0.1,0.1,0.1,1.28), "cm")
+			)
+
+		ggsave(paste(data_dir, surv_folder,  "/", iv, "_outcome_cluster_marker_avg_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 6, height = 5)	
+	}
+}
+
+
 
 if (surv_cohort_flag) {
 	prog_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = paste(surv_type, 'real_time_survival_dataframe.csv', sep = "_"))
