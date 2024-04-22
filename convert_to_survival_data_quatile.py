@@ -18,6 +18,7 @@ from dateutil.relativedelta import relativedelta
 
 # mainDir = "G:/My Drive/Weihua/OAI_Public_Data"
 mainDir = "/mnt/sda1/OAI_Data"
+mainDir = "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data"
 dataDir = mainDir + "/ASCII"
 resDir = mainDir + "/data_summary"
 exp_id = "12112020_data_clean"
