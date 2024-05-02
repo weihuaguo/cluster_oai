@@ -300,6 +300,52 @@ for (iotcm in unique(gath_ydf$o)) {
 
 #		print(head(tmp_diff_df))
 
+		tmp_diff_sum_df <- tmp_diff_df %>%
+			filter(!is.na(Cluster)) %>%
+			group_by(side, y, Cluster) %>%
+			summarise(n = n(),
+				  avg = mean(diff, na.rm = T),
+				  sd = sd(diff, na.rm = T),
+				  median = median(diff, na.rm=T),
+				  se = sd/sqrt(n),
+				  mean_se_upper = avg+se,
+				  mean_se_lower = avg-se
+			)
+		write.csv(tmp_diff_sum_df, paste(ppf, iotcm, "_diff_descriptive_stats.csv", sep = ""))
+
+#		print(head(tmp_sum_df))
+		tmp_kw_df <- tmp_diff_df %>%
+			filter(!is.na(Cluster)) %>%
+			group_by(side, y) %>%
+			kruskal_test(diff~Cluster) %>%
+			add_significance('p') %>%
+			adjust_pvalue('p') %>%
+			add_significance('p.adj')
+		write.csv(tmp_kw_df, paste(ppf, iotcm, "_diff_kruskal_wallis_res.csv", sep = ""))
+		tmp_prwlx_df <- tmp_diff_df %>%
+			filter(!is.na(Cluster)) %>%
+			group_by(side, y) %>%
+			pairwise_wilcox_test(diff~Cluster, detailed=T) %>%
+			add_significance('p') %>%
+			adjust_pvalue('p') %>%
+			add_significance('p.adj')
+		write.csv(tmp_prwlx_df, paste(ppf, iotcm, "_diff_pairwise_wilcox_res.csv", sep = ""))	
+
+		ysum_gg <- ggplot(tmp_diff_sum_df, aes(x = y, y = avg, color = Cluster, group = Cluster)) +
+			geom_errorbar(aes(ymin=avg-se, ymax=avg+se), width=.1) +
+			geom_line() +
+			geom_point(size = 0.5) +
+			scale_y_continuous(trans = 'log2') +
+			scale_color_brewer(palette = 'Spectral') +
+			labs(x = "Time (year)", y = paste(iotcm, "(fold change, Yxx/Y00)")) +
+			facet_wrap(side~., scales = 'free_y', nrow = 2) +
+			theme_bw()
+		ggsave(paste(ppf, iotcm, "_diff_real_date_year_sum.png", sep=''), ysum_gg, 
+		       dpi = 300, width = 9, height = 6)
+
+		q(save = "no")
+
+
 		tmp_fc_sum_df <- tmp_diff_df %>%
 			filter(!is.na(Cluster)) %>%
 			group_by(side, y, Cluster) %>%
