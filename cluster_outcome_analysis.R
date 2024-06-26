@@ -22,6 +22,7 @@ suppressMessages(library(survminer))
 suppressMessages(library(scales))
 suppressMessages(library(rstatix))
 suppressMessages(library(broom))
+suppressMessages(library(RColorBrewer))
 suppressMessages(library(forestmodel))
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
@@ -45,9 +46,12 @@ kr_type <- "total_lastfollowup"
 png_res <- 300
 top_m <- 10
 compare_flag <- FALSE
-compare_vis_flag <- TRUE
+compare_diff_flag <- TRUE
+compare_121_flag <- FALSE
+compare_vis_flag <- FALSE
 surv_flag <- FALSE
 surv_cohort_flag <- FALSE
+surv_mf_flag <- FALSE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -65,7 +69,9 @@ data_df <- as.data.frame(read.csv(paste(data_dir, "input_direct_merge_dataframe_
 				  sep = ",", header = TRUE, row.names=1, stringsAsFactors = FALSE))
 var_types <- sapply(data_df, class)
 metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
-# print(data_df[1:9, 1:6])
+print(data_df[1:9, 1:6])
+mf_cols <- c("P01BMI", "V00AGE", "V00CESD", "V00COMORB")
+mf_df <- data_df[,mf_cols]
 # print(head(umap_df))
 
 
@@ -249,6 +255,210 @@ if (compare_flag) {
 	ggsave(paste(data_dir, surv_folder,  "/outcome_cluster_marker_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 15, height = 5)
 }
 
+if (compare_diff_flag) {
+	c <- 0
+	for (idata in data_files) {
+		cat(idata, "\n")
+		out_name <- str_split_fixed(idata, "_", n = 2)[1]
+		tmp_data <- read.csv(paste(data_dir, surv_folder, "/", idata, sep = ""), header = T)
+		merge_data <- merge(tmp_data, umap_df, by = "ID", all.x = T)
+	#	print(head(merge_data))
+		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_final_", sep = "")
+
+		year_data <- merge_data[!is.na(merge_data$Cluster),]
+
+		year_data$year_mod <- year_data$tm %% 12
+		year_data <- year_data[year_data$year_mod <= 3 | year_data$year_mod >= 9,]
+		year_data$tm_round <- ifelse(year_data$year_mod <= 3, year_data$tm-year_data$year_mod, 
+					     year_data$tm+12-year_data$year_mod)
+		year_data$tyr <- year_data$tm_round/12
+		year_data$ytyr <- str_c("Y", year_data$tyr)
+
+		year_data <- year_data %>% 
+			group_by(tyr, Cluster) %>%
+			mutate(n = n(), avg = mean(value, na.rm = T))
+#		print(head(year_data))
+#		print(unique(year_data$ytyr))
+#		print(min(year_data$n))
+		plot_data <- as.data.frame(year_data[year_data$n > 100,])
+		clean_data <- plot_data %>% group_by(ID, ytyr, Cluster) %>% summarize(value = mean(value, na.rm = T)) # NOTE: multiple visit per year!
+		spr_df <- spread(clean_data[,c('ytyr', 'value', 'ID', 'Cluster')], 'ytyr', 'value')
+		diff_df <- spr_df
+		for (y in unique(plot_data$ytyr)) {
+			cat("\t", y, "\n")
+			diff_df[,y] <- diff_df[,y]-diff_df$Y0
+		}
+		write.csv(diff_df, paste(tmp_pf, 'diff_df_average.csv', sep = ''))
+		gath_diff <- gather(diff_df, "ytyr", "diff", unique(plot_data$ytyr))
+		print(head(gath_diff))
+		gath_diff <- gath_diff[!is.na(gath_diff$diff),]	
+		gath_diff <- gath_diff[gath_diff$ytyr != "Y0",]	
+		plot_data <- gath_diff
+		plot_data$value <- gath_diff$diff
+		plot_data <- plot_data %>%
+			group_by(ytyr, Cluster) %>%
+			mutate(n = n(), avg = mean(value, na.rm = T))
+		cat("Basic distribution\n")
+		xs_year <- ggplot(plot_data, aes(x = value, y = ytyr, fill = ytyr)) +
+			geom_density_ridges(quantile_lines = FALSE, alpha = 0.6, jittered_points = TRUE,
+					    point_size = 0.4, point_alpha = 0.2, position = position_raincloud(adjust_vlines = TRUE, width = 2)
+					    ) +
+			geom_vline(aes(xintercept = avg), color = "red") +
+			facet_grid(ytyr~Cluster, scales = "free") +
+			labs(x = out_name, y = "Visit year", fill = "Visit year") +
+			theme_bw()
+		ggsave(paste(tmp_pf, "diff_ridge_cross_year.png", sep = ""), dpi = png_res, width = 12, height = 1.5*length(unique(plot_data$ytyr)))
+
+		xc_year <- ggplot(plot_data, aes(x = value, y = Cluster, fill = Cluster)) +
+			geom_density_ridges(quantile_lines = FALSE, alpha = 0.6, jittered_points = TRUE,
+					    point_size = 0.4, point_alpha = 0.2, position = position_raincloud(adjust_vlines = TRUE, width = 2)
+					    ) +
+			geom_vline(aes(xintercept = avg), color = "red") +
+			facet_grid(Cluster~ytyr, scales = "free") +
+			labs(x = out_name, y = "Cluster", fill = "Cluster") +
+			theme_bw() +
+			theme(strip.text.y = element_blank(), 
+			  strip.background = element_blank())
+		ggsave(paste(tmp_pf, "diff_ridge_cross_cluster.png", sep = ""), dpi = png_res, width = 12, height = 1.5*length(unique(plot_data$Cluster)))
+	
+		year_sum <- year_data %>%
+			group_by(Cluster, ytyr) %>%
+			summarize(n = n()) %>%
+			filter(n > 0) %>%
+			group_by(ytyr) %>%
+			summarize(n = n())
+		keep_ys <- year_sum$ytyr[year_sum$n == length(unique(umap_df$Cluster))]
+		year_sum$tyr <- as.numeric(str_sub(year_sum$ytyr, -1, -1))
+
+		all_gg <- ggplot(plot_data, aes(x = ytyr, y = value, color = Cluster)) +
+			geom_boxplot(outlier.shape=NA) +
+			geom_point(position = position_jitterdodge(jitter.width=0.3), size = 0.2, alpha = 0.6) +
+			scale_color_brewer(palette = "Spectral") +
+			stat_compare_means(aes(group = Cluster), label = "p.signif") +
+			labs(x = "Time (year)", y = out_name, color = "Cluster") +
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1))
+		ggsave(paste(tmp_pf, "diff_boxplot_jitter.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
+
+
+		stat_df <- plot_data %>%
+			group_by(Cluster, ytyr) %>%
+			summarize(n = n(),
+				    mean = mean(value, na.rm = T),
+				    median = median(value, na.rm = T),
+				    sd = sd(value, na.rm = T),
+				    min = min(value, na.rm = T),
+				    max = max(value, na.rm = T),
+				    se = sd/sqrt(n),
+				    mean_se_upper = mean+se,
+				    mean_se_lower = mean-se)
+		
+#		print(head(stat_df))
+		##### Fig S3x+1
+		stat_df$tyr <- as.numeric(str_sub(stat_df$ytyr, -1, -1))
+		y_name <- expression(paste(Mean%+-%SEM, "(difference to the initial visit)"))
+		time_gg <- ggplot(stat_df, aes(x = tyr, y = mean, color = Cluster, group = Cluster)) +
+			geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1, alpha = 0.75) +
+			geom_line() +
+			geom_point(size = 1.8, alpha = 0.45) +
+			scale_color_brewer(palette = "Spectral") +
+			labs(y = y_name, color = "Cluster", x = "Time (year)", title = out_name) +
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+		ggsave(paste(tmp_pf, "diff_mean_se_dot_line.png", sep = ""), time_gg, dpi = png_res, width = 6, height = 4)
+
+
+		if (str_detect(out_name, "KL")) {
+			cts_df <- plot_data %>%
+				group_by(value, Cluster, ytyr) %>%
+				summarise(n = n())
+			cts_df$value <- factor(cts_df$value)
+			all_gg <- ggplot(cts_df, aes(x = Cluster, y = n, color = value, fill = value)) +
+				geom_bar(position="stack", stat="identity") +
+				scale_color_brewer(palette = "RdYlBu") +
+				scale_fill_brewer(palette = "RdYlBu") +
+				facet_grid(.~ytyr) +
+				labs(x = "Cluster", y = "Number of knees", color = out_name, fill = out_name) +
+				theme_bw() +
+				theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+			ggsave(paste(tmp_pf, "diff_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
+			all_gg <- ggplot(cts_df, aes(x = Cluster, y = n, color = value, fill = value)) +
+				geom_bar(position="fill", stat="identity") +
+				scale_color_brewer(palette = "RdYlBu") +
+				scale_fill_brewer(palette = "RdYlBu") +
+				facet_grid(.~ytyr) +
+				labs(x = "Cluster", y = "Proportion of knees", color = out_name, fill = out_name) +
+				theme_bw() +
+				theme(axis.text.x = element_text(angle = 45, hjust = 1))
+			ggsave(paste(tmp_pf, "diff_rel_bar.png", sep = ""), all_gg, dpi = png_res, width = 9, height = 4)
+
+		}
+	}
+}
+
+if (compare_121_flag) {
+	c <- 0
+	for (idata in data_files) {
+		cat(idata, "\n")
+		out_name <- str_split_fixed(idata, "_", n = 2)[1]
+		tmp_data <- read.csv(paste(data_dir, surv_folder, "/", idata, sep = ""), header = T)
+		merge_data <- merge(tmp_data, umap_df, by = "ID", all.x = T)
+	#	print(head(merge_data))
+		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_final_", sep = "")
+
+		year_data <- merge_data[!is.na(merge_data$Cluster),]
+
+		year_data$year_mod <- year_data$tm %% 12
+		year_data <- year_data[year_data$year_mod <= 3 | year_data$year_mod >= 9,]
+		year_data$tm_round <- ifelse(year_data$year_mod <= 3, year_data$tm-year_data$year_mod, 
+					     year_data$tm+12-year_data$year_mod)
+		year_data$tyr <- year_data$tm_round/12
+		year_data$ytyr <- str_c("Y", year_data$tyr)
+
+		year_data <- year_data %>% 
+			group_by(tyr, Cluster) %>%
+			mutate(n = n(), avg = mean(value, na.rm = T))
+#		print(head(year_data))
+#		print(unique(year_data$ytyr))
+#		print(min(year_data$n))
+		plot_data <- year_data[year_data$n > 100,]
+#		print(head(as.data.frame(plot_data)))
+
+		pw_res <- plot_data %>%
+			group_by(ytyr) %>%
+			pairwise_wilcox_test(value ~ Cluster, detailed = T) %>%
+			add_significance('p')
+		avg_df <- plot_data %>% 
+			group_by(ytyr, Cluster) %>%
+			summarize(avg = mean(value, na.rm = T))
+		pw_res <- merge(pw_res, avg_df, by.x = c("ytyr", "group1"), by.y = c("ytyr", "Cluster"))
+		colnames(pw_res)[ncol(pw_res)] <- "avg1"
+
+		pw_res <- merge(pw_res, avg_df, by.x = c("ytyr", "group2"), by.y = c("ytyr", "Cluster"))
+		colnames(pw_res)[ncol(pw_res)] <- "avg2"
+		pw_res$avg_log2FC <- log2(pw_res$avg1/pw_res$avg2)
+
+		write.csv(pw_res, paste(tmp_pf, "pairwise_wilcox_results.csv", sep = ""))
+
+		pw_res$comp <- str_c(pw_res$group1, " vs ", pw_res$group2)
+
+		sig_color <- brewer.pal(5, "BuPu")
+		names(sig_color) <- c("ns", "*", "**", "***", "****")
+		sig_color[['ns']] <- "grey"
+
+		alg_gg <- ggplot(pw_res, aes(x = avg_log2FC, y = reorder(comp, avg_log2FC), color = p.adj.signif)) +
+			geom_point(size = 6) +
+			geom_vline(xintercept = 0, linetype = "dashed") +
+			scale_color_manual(values = sig_color) +
+			facet_wrap(~ ytyr, ncol = 1) +
+			labs(title = out_name, y = "Comparisons (one-to-one)", x = "log2 fold changes of averages", color = "Adjusted\nP-value") +
+			theme_bw()
+		ggsave(paste(tmp_pf, "point_121_comp_adj.png", sep = ""), dpi = png_res, width = 9, height = 12)
+	}
+}
+
 if (compare_vis_flag) {
 	all_year_data <- read.csv(paste(data_dir, surv_folder, "/outcome_cluster_markers_all_data.csv", sep = ""), header = T, row.names = 1)
 	merge_year_stat <- read.csv(paste(data_dir, surv_folder, "/outcome_cluster_markers_wilcox_result.csv", sep = ""), header = T, row.names = 1)
@@ -375,6 +585,48 @@ if (surv_cohort_flag) {
 		gar <- dev.off()
 		} #JJJJ
 	}
+}
+
+if (surv_mf_flag) {
+	prog_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = paste(surv_type, 'real_time_survival_dataframe.csv', sep = "_"))
+	print(prog_files)
+
+	for (iprog in prog_files) {
+		cat(iprog, "\n")
+		if (surv_type == "v00") {
+			tmp_prog <- read.csv(paste(data_dir, surv_folder, "/", iprog, sep = ""), header = T)
+		} else {
+			tmp_prog <- read.csv(paste(data_dir, surv_folder, "/", iprog, sep = ""), header = T, row.names = 1)
+		}
+		out_name <- str_split_fixed(iprog, "_", n = 2)[1]
+		clean_prog <- tmp_prog
+		merge_prog <- merge(clean_prog, umap_df, by = "ID", all.x = T)
+		merge_prog$dstart <- as.numeric(merge_prog$dstart)
+		merge_prog$dstop <- as.numeric(merge_prog$dstop)
+
+		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_", surv_type, "_", sep = "")
+		if (str_detect(iprog, "JSW")) {
+			ylim <- c(0.5, 1)
+			p_day_pos <- c(10,0.6)
+			p_mon_pos <- c(2,0.6)
+		} else {
+			ylim <- c(0.4, 1)
+			p_day_pos <- c(10,0.5)
+			p_mon_pos <- c(2,0.5)
+		}
+
+		merge_prog <- merge(merge_prog, mf_df, by.x = "ID", by.y = "row.names", all.x = T)
+#		print(head(merge_prog))
+		
+		fprog <- merge_prog
+		fprog$Cluster <- factor(fprog$Cluster,
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+
+		png(paste(tmp_pf, 'day_forestmodel_mf_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
+		print(forest_model(coxph(Surv((dstop - dstart), event) ~ P01BMI + V00AGE + V00CESD + Cluster, data=fprog))+labs(title = out_name))
+		gar <- dev.off()
+	}
+
 }
 
 if (surv_flag) {
