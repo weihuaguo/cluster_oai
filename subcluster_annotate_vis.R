@@ -35,19 +35,19 @@ input_id <- "12112020_data_clean"
 clean_co <- 'v25'
 input_prefix <- paste(clst_dir, 'clean_', clean_co, '_los_subcluster_', sep = "")
 output_prefix <- paste(input_prefix, "final_", sep = "")
-cluster_num <- 3
+cluster_num <- 4
 scale_top <- 4
 kr_type <- "total_lastfollowup"
 
 png_res <- 600
 top_m <- 10
 
-demographic_flag <- FALSE
+demographic_flag <- TRUE
 outcome_table_flag <- FALSE
-cluster_annotation_flag <- TRUE
+cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
-numeric_vis_marker_flag <- FALSE
-categorical_vis_marker_flag <- FALSE
+numeric_vis_marker_flag <- TRUE
+categorical_vis_marker_flag <- TRUE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
@@ -78,7 +78,7 @@ umap_gg <- ggplot(umap_df, aes_string(x = "UMAP1", y = "UMAP2", color = "name"))
 	labs(color='Cluster') +
 	theme_classic()
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r.png', sep = ""), umap_gg, 
-       dpi = png_res, width = 7.5, height = 5)
+       dpi = png_res, width = 5, height = 3.5)
 
 if (FALSE) {
 #metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
@@ -92,6 +92,27 @@ metric_gg <- ggplot(gath_metric_df, aes(x=cluster_num, y = scores)) +
 	theme_bw()
 ggsave(paste(output_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '_vis.png', sep = ""), metric_gg,
 dpi = png_res, width = 6, height=6)
+}
+
+if (demographic_flag) {
+	print(data_df[1:9, 1:6])
+	print(colnames(data_df)[str_detect(colnames(data_df), "INCOME")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "AGE")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "RACE")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "EDC")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "EMPLOY")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "BMI")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "SEX")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "COHORT")])
+	print(colnames(data_df)[str_detect(colnames(data_df), "COMORB")])
+
+
+	demo_df <- data_df[,c("V00AGE",  "P02SEX", "P02RACE", "P01BMI", "V00EDCV", "V00INCOME", "V00CEMPLOY", "V00COMORB")]
+	colnames(demo_df) <- c("Age", "Sex", "Race", "BMI", "Education", "Income", "Employment", "Comorbidity")
+	demo_df$Cohort <- kr_df[rownames(demo_df), "V00COHORT"]
+	table_df <- merge(umap_df, demo_df, by = "row.names")
+	demo_table <- table1(~Age+Sex+Race+BMI+Education+Income+Employment+Comorbidity+Cohort | name, data = table_df)
+	write.csv(as.data.frame(demo_table), paste(output_prefix, "cluster", cluster_num, "_demographic_format_table.csv", sep = ""))
 }
 
 ###### Generate the marker table [Table S2]
@@ -170,4 +191,130 @@ if (cluster_annotation_flag) {
 	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
 	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = "")) # SD4
 }
+
+##### Use Heatmap/dot plot to visualize the top feature markers [Fig. 2B&C]
+marker_df <- read.csv(paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""), row.names = 1)
+marker_df$name <- str_c("C", marker_df$cluster)
+
+if (categorical_vis_marker_flag) { # [Fig 2B]
+	cat("Dot plot for categorical markers...\n")
+	cat_marker_df <- marker_df[marker_df$type != 'numeric',]
+#	cat_marker_df <- cat_marker_df[cat_marker_df$logfc >=0,]
+	cat_marker_df$logpadj <- -log10(cat_marker_df$adjp)
+	cat_marker_df$cluster <- as.factor(cat_marker_df$cluster)
+	cat_marker_df <- cat_marker_df[!is.na(cat_marker_df$cluster),]
+	top_cat_marker_df <- cat_marker_df %>%
+		group_by(cluster) %>%
+		filter(adjp <= 0.10) %>%
+		top_n(top_m,logfc)
+	plot_top_cat_marker_df <- cat_marker_df[cat_marker_df$variable %in% unique(top_cat_marker_df$variable),]
+
+	write.csv(cat_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_cat_markers.csv', sep = ""))
+	co <- 1:6
+	for (ico in co) {
+		sig_cat_marker_df <- cat_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
+		dengg <- ggplot(sig_cat_marker_df, aes(x = logfc)) +
+			geom_density(aes(fill = name)) +
+			scale_fill_brewer(palette = "Spectral") +
+			facet_wrap(~name, ncol = 1) +
+			labs(fill = "Cluster", x = "Cramer's V") +
+			theme_bw()
+		ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_cat_markers_logfc_dens.png', sep = ""), dpi = png_res,
+		       width = 9, height = 9)
+	
+		sig_cat_marker_df <- cat_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico, abs(logfc) >= 0.375)
+		write.csv(sig_cat_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_cat_markers.csv', sep = ""))
+#		print(head(sig_cat_marker_df))
+#		q(save = "no")
+	}
+
+
+	plot_top_cat_marker_df$var_name <- plot_top_cat_marker_df$variable
+	for (ivn in 1:nrow(var_coding)) {
+		if (var_coding[ivn, "VID"] %in% plot_top_cat_marker_df$variable) {
+			tmp_mask <- plot_top_cat_marker_df$variable == var_coding[ivn, "VID"]
+			plot_top_cat_marker_df$var_name[tmp_mask] <- var_coding[ivn, "Name"]
+		}
+	}
+
+	var_levels <- c()
+	for (inm in unique(plot_top_cat_marker_df$name)) {
+		tmp_df <- plot_top_cat_marker_df[plot_top_cat_marker_df$name == inm,]
+		tmp_levels <- tmp_df$var_name[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
+		var_levels <- c(var_levels, tmp_levels[!(tmp_levels %in% var_levels)])
+	}
+
+	plot_top_cat_marker_df <- plot_top_cat_marker_df[plot_top_cat_marker_df$var_name %in% var_levels,]
+	plot_top_cat_marker_df$var_name <- factor(plot_top_cat_marker_df$var_name, levels = var_levels)
+	plot_top_cat_marker_df$name <- factor(plot_top_cat_marker_df$name)#, levels = name_order)
+	dot_mgg <- ggplot(plot_top_cat_marker_df, aes(y = name, x = var_name)) +
+		geom_point(aes(color = logfc, size = logpadj)) +
+		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
+		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key categorical variables") +
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_cate_markers.png', sep = ""), 
+	       dot_mgg, dpi = png_res, width = 10, height = 6)
+}
+
+
+if (numeric_vis_marker_flag) { # [Fig 2C]
+	cat("Dot plot for numeric markers...\n")
+	num_marker_df <- marker_df[marker_df$type == 'numeric',]
+#	num_marker_df <- num_marker_df[num_marker_df$logfc >=0,]
+	num_marker_df$logpadj <- -log10(num_marker_df$adjp)
+	num_marker_df$cluster <- as.factor(num_marker_df$cluster)
+	num_marker_df <- num_marker_df[!is.na(num_marker_df$cluster),]
+	top_num_marker_df <- num_marker_df %>%
+		group_by(cluster) %>%
+		filter(adjp <= 0.10) %>%
+		top_n(top_m,logfc)
+	plot_top_num_marker_df <- num_marker_df[num_marker_df$variable %in% unique(top_num_marker_df$variable),]
+
+	write.csv(num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_num_markers.csv', sep = ""))
+	co <- 1:6
+	for (ico in co) {
+		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
+		dengg <- ggplot(sig_num_marker_df, aes(x = logfc)) +
+			geom_density(aes(fill = name)) +
+			scale_fill_brewer(palette = "Spectral") +
+			facet_wrap(~name, ncol = 1) +
+			labs(fill = "Cluster", x = "log2 Fold changes") +
+			theme_bw()
+		ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_num_markers_logfc_dens.png', sep = ""), dpi = png_res,
+		       width = 9, height = 9)
+
+		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico, abs(logfc) >= 0.5)
+		write.csv(sig_num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_adjp_co_10mns', ico, '_num_markers.csv', sep = ""))
+#		print(head(sig_num_marker_df))
+	}
+
+	plot_top_num_marker_df$var_name <- plot_top_num_marker_df$variable
+	for (ivn in 1:nrow(var_coding)) {
+		if (var_coding[ivn, "VID"] %in% plot_top_num_marker_df$variable) {
+			tmp_mask <- plot_top_num_marker_df$variable == var_coding[ivn, "VID"]
+			plot_top_num_marker_df$var_name[tmp_mask] <- var_coding[ivn, "Name"]
+		}
+	}
+
+	var_levels <- c()
+	for (inm in unique(plot_top_num_marker_df$name)) {
+		tmp_df <- plot_top_num_marker_df[plot_top_num_marker_df$name == inm,]
+		tmp_levels <- tmp_df$var_name[order(abs(tmp_df$logfc), decreasing = T)][1:top_m]
+		var_levels <- c(var_levels, tmp_levels[!(tmp_levels %in% var_levels)])
+	}
+
+	plot_top_num_marker_df <- plot_top_num_marker_df[plot_top_num_marker_df$var_name %in% var_levels,]
+	plot_top_num_marker_df$var_name <- factor(plot_top_num_marker_df$var_name, levels = var_levels)
+	plot_top_num_marker_df$name <- factor(plot_top_num_marker_df$name)#, levels = name_order)
+	dot_mgg <- ggplot(plot_top_num_marker_df, aes(y = name, x = var_name)) +
+		geom_point(aes(color = logfc, size = logpadj)) +
+		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0) + 
+		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key numeric variables") +
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_num_markers.png', sep = ""), 
+	       dot_mgg, dpi = png_res, width = 10, height = 6)
+}
+
 
