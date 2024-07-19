@@ -42,12 +42,12 @@ kr_type <- "total_lastfollowup"
 png_res <- 600
 top_m <- 10
 
-demographic_flag <- TRUE
-outcome_table_flag <- FALSE
+demographic_flag <- FALSE
+outcome_table_flag <- TRUE
 cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
-numeric_vis_marker_flag <- TRUE
-categorical_vis_marker_flag <- TRUE
+numeric_vis_marker_flag <- FALSE
+categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
@@ -114,6 +114,37 @@ if (demographic_flag) {
 	demo_table <- table1(~Age+Sex+Race+BMI+Education+Income+Employment+Comorbidity+Cohort | name, data = table_df)
 	write.csv(as.data.frame(demo_table), paste(output_prefix, "cluster", cluster_num, "_demographic_format_table.csv", sep = ""))
 }
+
+###### Generate the outcome table [Table S2]
+if (outcome_table_flag) {
+	print(dim(kr_df))
+	print(colnames(kr_df))
+	print(head(kr_df[,200:ncol(kr_df)]))
+	print(unique(kr_df[,"left_kr"]))
+	cate_kr_df <- kr_df[,c("left_time", "left_kr", "right_time", "right_kr")]
+	cate_kr_df$left_y04 <- ifelse(cate_kr_df$left_time <= 365*4+1, cate_kr_df$left_kr, 
+				      ifelse(str_detect(cate_kr_df$left_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+	cate_kr_df$left_y08 <- ifelse(cate_kr_df$left_time <= 365*8+2, cate_kr_df$left_kr, 
+				      ifelse(str_detect(cate_kr_df$left_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+
+	cate_kr_df$right_y04 <- ifelse(cate_kr_df$right_time <= 365*4+1, cate_kr_df$right_kr, 
+				      ifelse(str_detect(cate_kr_df$right_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+	cate_kr_df$right_y08 <- ifelse(cate_kr_df$right_time <= 365*8+2, cate_kr_df$right_kr, 
+				      ifelse(str_detect(cate_kr_df$right_kr, "Missing"), ".: Missing Form/Incomplete Workbook", "3: No"))
+
+
+	print(head(cate_kr_df))
+	print(unique(cate_kr_df[,"left_y04"]))
+
+	out_tbl_df <- cate_kr_df[,str_detect(colnames(cate_kr_df), "y0")]
+	colnames(out_tbl_df) <- c("Year4_Left", "Year8_Left", "Year4_Right", "Year8_Right")
+	print(head(out_tbl_df))
+
+	table_df <- merge(umap_df, out_tbl_df, by = "row.names")
+	kr_table <- table1(~ Year4_Left+Year8_Left+Year4_Right+Year8_Right | name, data = table_df)
+	write.csv(as.data.frame(kr_table), paste(input_prefix, "tkr_format_table.csv", sep = ""))
+}
+
 
 ###### Generate the marker table [Table S2]
 if (cluster_annotation_flag) {
