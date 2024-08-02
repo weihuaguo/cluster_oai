@@ -12,12 +12,14 @@ suppressMessages(library(circlize))
 suppressMessages(library(viridis))
 suppressMessages(library(rstatix))
 suppressMessages(library(ggforce))
+suppressMessages(library(RColorBrewer))
+
 
 data_dir <- "/mnt/sda1/OAI_Data/data_summary"
 var_ann <- as.data.frame(read_excel(paste(data_dir, "AllClinical00_V6_column_annotation.xlsx", sep = "/"), sheet = "Baseline"))
 print(head(var_ann))
 sup_var_ann <- var_ann[var_ann$Sup == "Yes",]
-suppf <- paste(data_dir, "/supp_analysis/supp_analysis_", sep= "")
+suppf <- paste(data_dir, "/supp_analysis/supp_analysis_240802_", sep= "")
 
 clean_co<-'v25'
 cor_df<-read.csv(paste(data_dir, "/input_direct_merge_dataframe_12112020_data_clean_correlation_", clean_co, ".csv", sep=''),row.names=1)
@@ -44,23 +46,34 @@ gath_p_df$supp_var <- rownames(gath_p_df)
 gath_p_df <- gather(gath_p_df, "other_var", "p", all_other_col)
 
 gath_df <- merge(gath_cor_df, gath_p_df, by= c("supp_var", "other_var"))
-gath_df <- gath_df %>% add_significance('p')
 
+gath_df <- merge(gath_df, sup_var_ann, by.x = "supp_var", by.y = "Variables", all.x = T)
+
+gath_df$Resource <- ifelse(str_detect(gath_df$Label, "from food"), "From food", 
+			    ifelse(str_detect(gath_df$Label, "from vitamin"), "From suppplements", "Frequency"))
+gath_df <- gath_df[gath_df$Resource != "Frequency",]
+gath_df$p[is.na(gath_df$p)] <- 1.0
+gath_df <- gath_df %>% add_significance('p')
 gath_df <- gath_df %>%
 	group_by(other_var) %>%
 	mutate(n_sig_supp_var = sum(p.signif != "ns"))
-gath_df <- merge(gath_df, sup_var_ann, by.x = "supp_var", by.y = "Variables", all.x = T)
-gath_df$Resource <- ifelse(str_detect(gath_df$Label, "from food"), "From food", 
-			    ifelse(str_detect(gath_df$Label, "from vitamin"), "From suppplements", "Frequency"))
+gath_df <- gath_df %>%
+	filter(cor > 0) %>%
+	group_by(other_var) %>%
+	mutate(n_pos_sig_supp_var = sum(p.signif != "ns"))
+
 
 print(head(gath_df))
+
 top_df <- gath_df %>%
 	group_by(supp_var) %>%
 	top_n(wt = n_sig_supp_var, n=10)
 
+col_num <- length(unique(top_df$other_var))
+manual_color <- colorRampPalette(brewer.pal(8, "Paired"))(col_num)
 gg <- ggplot(top_df, aes(x = supp_var, y = cor, color = other_var)) +
 	geom_point(aes(shape = p.signif), size = 3) +
-	scale_color_brewer(palette = "Paired") +
+	scale_color_manual(values = manual_color) +
 	labs(x = "Variable related to nutrition and supplements", y = "Correlation/association", shape = "Statistical\nsignificance", color = "Variables") +
 	facet_row(~Resource, scales = "free", space = "free") +
 	theme_bw() +
@@ -68,7 +81,6 @@ gg <- ggplot(top_df, aes(x = supp_var, y = cor, color = other_var)) +
 ggsave(paste(suppf, "sum_point.png", sep = ""), dpi = 300, width = 16, height =  9)
 print(top_df)
 
-q(save = "no")
 cat("Supplements self-correlation\n")
 ol_var <- intersect(sup_var_ann$Variable, rownames(cor_df))
 use_cor_df <- cor_df[ol_var, ol_var]
@@ -82,10 +94,17 @@ rownames(supp_ann) <- supp_ann$Variables
 supp_ann$Resource <- ifelse(str_detect(supp_ann$Label, "from food"), "From food", 
 			    ifelse(str_detect(supp_ann$Label, "from vitamin"), "From suppplements", "Frequency")
 )
+supp_ann <- supp_ann[supp_ann$Resource != "Frequency",]
+
 print(head(supp_ann))
-supp_ann <- supp_ann[rownames(use_cor_df),]
+use_cor_df <- use_cor_df[rownames(supp_ann), rownames(supp_ann)]
+use_p_df <- use_p_df[rownames(supp_ann), rownames(supp_ann)]
+use_num_df <- use_num_df[rownames(supp_ann), rownames(supp_ann)]
+
+print(dim(supp_ann))
+print(dim(use_cor_df))
 row_ann <- HeatmapAnnotation(Resource = supp_ann$Resource,
-			     col = list(Resource = c("From food" = "forestgreen", "From suppplements" = "dodgerblue", "Frequency" = "gray"))
+			     col = list(Resource = c("From food" = "forestgreen", "From suppplements" = "dodgerblue"))
 )
 
 use_cor_df[is.na(use_cor_df)] <- -2.0
@@ -135,11 +154,7 @@ rownames(order_df)<-colnames(use_cor_df)
 colnames(order_df)<-c("hclust_order")
 print(head(order_df))
 
-write.csv(order_df, paste(data_dir, "/input_direct_merge_dataframe_12112020_data_clean_correlation_order_supp_",clean_co,".csv", sep = ""))
-
-q(save = 'no')
-
-
+write.csv(order_df, paste(data_dir, "/input_direct_merge_dataframe_12112020_data_clean_correlation_order_supp_240802_",clean_co,".csv", sep = ""))
 
 cat("Outcome association\n")
 result_folder <- "predictor_vis_230213"
@@ -177,9 +192,12 @@ supp_ann$Resource <- ifelse(str_detect(supp_ann$ID, "from food"), "From food",
 			    ifelse(str_detect(supp_ann$ID, "from vitamin"), "From suppplements", "Frequency")
 )
 print(head(supp_ann))
+supp_ann <- supp_ann[supp_ann$Resource != "Frequency",]
+
+print(head(supp_ann))
 hm_df <- hm_df[rownames(supp_ann),]
 row_ann <- rowAnnotation(Resource = supp_ann$Resource,
-			     col = list(Resource = c("From food" = "forestgreen", "From suppplements" = "dodgerblue", "Frequency" = "gray"))
+			     col = list(Resource = c("From food" = "forestgreen", "From suppplements" = "dodgerblue"))
 )
 
 outcome_ann <- as.data.frame(matrix(nrow = ncol(hm_df), ncol = 3))
