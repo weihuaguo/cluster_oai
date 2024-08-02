@@ -54,6 +54,10 @@ volcano_flag <- FALSE
 supplement_flag <- FALSE
 
 cat("Reading python output results...\n")
+general_umap_df <- as.data.frame(read_excel("/mnt/sda1/OAI_Data/kmean_cluster_12252020/clean_v25_cluster4_kmean_pca_umap_res.xlsx"))
+general_umap_df$gcluster <- str_c("G", general_umap_df$kmean_pca)
+print(head(general_umap_df))
+
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
 rownames(umap_df) <- umap_df$ID
 umap_df$name <- str_c("C", umap_df$kmean_pca)
@@ -80,6 +84,31 @@ umap_gg <- ggplot(umap_df, aes_string(x = "UMAP1", y = "UMAP2", color = "name"))
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r.png', sep = ""), umap_gg, 
        dpi = png_res, width = 5, height = 3.5)
 
+general_umap_df <- merge(general_umap_df, umap_df, by = "ID", all.x = T)
+general_umap_df$sub_cluster <- ifelse(is.na(general_umap_df$cluster), "Others", general_umap_df$cluster)
+general_umap_df$all_cluster <- ifelse(is.na(general_umap_df$cluster), general_umap_df$gcluster, general_umap_df$cluster)
+
+print(head(general_umap_df))
+
+umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", color = "sub_cluster")) + 
+	geom_point(size = 1) +
+	scale_color_brewer(palette = "Set1") +
+	guides(color = guide_legend(override.aes = list(size = 3))) +
+	labs(color='Cluster') +
+	theme_classic()
+ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_sub_cluster_on_big_umap.png', sep = ""), umap_gg, 
+       dpi = png_res, width = 5, height = 3.5)
+
+umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", color = "all_cluster")) + 
+	geom_point(size = 1) +
+	scale_color_brewer(palette = "Set2") +
+	guides(color = guide_legend(override.aes = list(size = 3))) +
+	labs(color='Cluster') +
+	theme_classic()
+ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_all_cluster_on_big_umap.png', sep = ""), umap_gg, 
+       dpi = png_res, width = 5, height = 3.5)
+
+q(save = "no")
 if (FALSE) {
 #metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 ##### UMAP overlay with clusters [Fig S2A]
