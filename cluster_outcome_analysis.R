@@ -45,8 +45,8 @@ kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
-compare_flag <- FALSE
-compare_diff_flag <- TRUE
+compare_flag <- TRUE
+compare_diff_flag <- FALSE
 compare_121_flag <- FALSE
 compare_vis_flag <- FALSE
 surv_flag <- FALSE
@@ -85,7 +85,8 @@ if (compare_flag) {
 		out_name <- str_split_fixed(idata, "_", n = 2)[1]
 		tmp_data <- read.csv(paste(data_dir, surv_folder, "/", idata, sep = ""), header = T)
 		merge_data <- merge(tmp_data, umap_df, by = "ID", all.x = T)
-	#	print(head(merge_data))
+#		print(head(merge_data))
+#		q(save = "no")
 		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_final_", sep = "")
 
 		year_data <- merge_data[!is.na(merge_data$Cluster),]
