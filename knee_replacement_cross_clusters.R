@@ -59,6 +59,42 @@ print(colnames(kr_df))
 kr_umap_df <- merge(kr_df, umap_df, by = "ID")
 print(dim(kr_umap_df))
 print(colnames(kr_umap_df))
+print(head(kr_df[kr_df$lkr_event == 1,]))
+rty_df <- read.csv(paste(data_dir, "outcome_real_date_conversion_year.csv", sep = ""), header = T, row.names = 1)
+oc_df <- read.csv(paste(data_dir, "outcome_all_dataframe_", input_id, ".csv", sep=''),row.names=1)
+
+print(head(rty_df))
+womts_df <- oc_df[,str_detect(colnames(oc_df), "WOMTS")]
+womts_df <- womts_df[,str_detect(colnames(womts_df), "V00")]
+womts_df$ID <- rownames(womts_df)
+print(head(womts_df))
+
+kr_oc_df <- merge(womts_df, kr_umap_df[,c("ID", "left_time", "left_kr", "right_time", "right_kr")], by = "ID", all.x = T)
+print(head(kr_oc_df))
+print(table(kr_oc_df$left_kr))
+gath_kr_oc_df <- gather(kr_oc_df, "WOMAC_SIDE", "WOMTS", colnames(kr_oc_df)[str_detect(colnames(kr_oc_df), "WOMTS")])
+gath_kr_oc_df <- gather(gath_kr_oc_df, "KR_SIDE", "KR_EVENT", colnames(kr_oc_df)[str_detect(colnames(kr_oc_df), "_kr")])
+gath_kr_oc_df <- gath_kr_oc_df[!is.na(gath_kr_oc_df$KR_EVENT),]
+print(head(gath_kr_oc_df))
+
+gg <- ggplot(gath_kr_oc_df, aes(x = KR_EVENT, y = WOMTS, color = KR_EVENT)) +
+	geom_boxplot() +
+	geom_point() +
+	facet_grid(WOMAC_SIDE~KR_SIDE) +
+	stat_compare_means(aes(group = KR_EVENT), label = "p.format") +
+	theme_classic() +
+	theme(axis.text.x = element_blank())
+ggsave(paste(data_dir, surv_folder, "/womts_cross_kr.png", sep = ""), gg, dpi = png_res, width = 9, height = 9)
+
+pw_gg_res <- gath_kr_oc_df %>%
+	group_by(WOMAC_SIDE, KR_SIDE) %>%
+	pairwise_wilcox_test(WOMTS~KR_EVENT, detailed = T) %>%
+	add_significance('p') %>%
+	adjust_pvalue('p') %>%
+	add_significance('p.adj')
+write.csv(pw_gg_res, paste(data_dir, surv_folder, "/womts_cross_kr_pairwise_wilcox.csv", sep = ""))
+q(save = "no")
+
 cohort_cts <- kr_umap_df %>%
 	group_by(V00COHORT, Cluster) %>%
 	summarise(n = n())
