@@ -166,4 +166,5 @@ for icol in col_oi:
 print(direct_merge_df)
 direct_merge_df.to_csv(resDir+"/life_act_direct_merge_dataframe_"+exp_id+".csv")
 direct_merge_df.to_pickle(resDir+"/life_act_direct_merge_dataframe_"+exp_id+".pkl")
+direct_merge_df.isna().sum(axis=0).to_csv(resDir+"/life_act_direct_merge_dataframe_"+exp_id+"_na_counts.csv")
 print('Total time cost '+str(dt.now()-st))
