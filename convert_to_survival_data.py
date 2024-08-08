@@ -3,6 +3,7 @@
 """
 Created on Thu Mar 17 09:29:57 2022
 Generate survival data based on selected outcome variables
+Already quantile!!!
 
 @author: weihua
 """
@@ -99,7 +100,7 @@ for iop in outcome_patterns:
                         f0 = False
                 elif "JSW" in iop:
                     d0 = tmp_df.loc[idx, col] - v0 # TODO: how to handle pre = 0
-                    if d0 <= -tmp_max/4 and f0:
+                    if d0 <= -tmp_max/4 and f0: # NOTE: Already quantile but per patient
                         tmp_v00_surv.loc[idx, 'ID'] = idx
                         tmp_v00_surv.loc[idx, 'vtime'] = col
                         tmp_v00_surv.loc[idx, 'event'] = 1
