@@ -55,7 +55,8 @@ umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
 supplement_flag <- FALSE
-life_act_flag <- TRUE
+life_act_flag <- FALSE
+norm_flag <- TRUE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -241,6 +242,101 @@ if (one2one_annotation_flag) {
 	}
 #	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
 #	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""))
+}
+
+if (norm_flag) {
+	var_ann <- as.data.frame(read_excel(paste(data_dir, "AllClinical00_V6_column_annotation.xlsx", sep = "/"), sheet = "Baseline"))
+	print(head(var_ann))
+	print(colnames(data_df))
+	print(colnames(data_df)[str_detect(colnames(data_df), "WEIGHT")])
+	var_ann <- var_ann[var_ann$Norm == "Yes",]
+	use_data_df <- data_df[,c(var_ann$Variables, "P01BMI", "P01WEIGHT")]
+	use_data_df <- use_data_df[rownames(umap_df),]
+	norm_df <- as.data.frame(matrix(ncol = nrow(var_ann)*2, nrow = nrow(use_data_df)))
+	rownames(norm_df) <- rownames(use_data_df)
+	c <- 1
+	for (i in var_ann$Variables) {
+		cat(i, "\n")
+		colnames(norm_df)[c] <- str_c(i,"_BMI")
+		norm_df[,c] <- use_data_df[,i]/use_data_df[,"P01BMI"]
+		c <- c+1
+		colnames(norm_df)[c] <- str_c(i,"_WEIGHT")
+		norm_df[,c] <- use_data_df[,i]/use_data_df[,"P01WEIGHT"]
+		c <- c+1
+	}
+	use_data_df <- norm_df
+	marker_types <- sapply(use_data_df, class)
+	marker_cols <- c('variable', 'cluster', 'type', 'test','avg1', 'avg2', 'diff', 'logfc', 'per1', 'per2', 'pval')
+	marker_df <- as.data.frame(matrix(nrow=(cluster_num*ncol(data_df)), ncol=length(marker_cols)))
+	colnames(marker_df) <- marker_cols
+	ic <- 1
+	for (i in 0:(cluster_num-1)) {
+		cat("\tCluster", i, '\n')
+		tmp_umap_df <- umap_df
+		tmp_umap_df$comp <- ifelse(tmp_umap_df$kmean_pca == i, 'COI', 'Others')
+		for (im in names(marker_types)) {
+	#		print(marker_types[[im]])
+			marker_df[ic, 'variable'] <- im
+			marker_df[ic, 'cluster'] <- i
+			marker_df[ic, 'type'] <- marker_types[[im]]
+			tmp_df <- cbind(tmp_umap_df, use_data_df[,im])
+			print(head(tmp_df))
+			tmp_force_num <- as.numeric(as.character(tmp_df[,ncol(tmp_df)]))
+			if (sum(!is.na(tmp_force_num))>0) {
+				marker_types[[im]] <- 'numeric'
+				tmp_df[,ncol(tmp_df)] <- tmp_force_num
+			}
+			tmp_df <- tmp_df[!is.na(tmp_df[,ncol(tmp_df)]),]
+
+			if (marker_types[[im]]=='numeric'|marker_types[[im]]=='integer'){
+	#			cat("\t\tKruskal-Wallis Test...\n")
+				marker_df[ic, 'test'] <- 'Kruskal-Wallis test'
+	#			print(head(tmp_df))
+				tmp_sum <- tmp_df %>%
+					group_by(comp) %>%
+					summarize(mean = mean(`use_data_df[, im]`, na.rm=T),
+						  n=n(),
+						  naper = sum(!is.na(`use_data_df[, im]`))/n())
+				marker_df[ic, 'avg1'] <- tmp_sum[1,'mean']
+				marker_df[ic, 'avg2'] <- tmp_sum[2, 'mean']
+				marker_df[ic, 'diff'] <- tmp_sum[1, 'mean']-tmp_sum[2,'mean']
+				marker_df[ic, 'logfc'] <- log2(tmp_sum[1, 'mean']/tmp_sum[2, 'mean'])
+				marker_df[ic, 'per1'] <- tmp_sum[1, 'naper']
+				marker_df[ic, 'per2'] <- tmp_sum[2, 'naper']
+				tmp_test <- kruskal.test(`use_data_df[, im]`~comp, data = tmp_df)
+				marker_df[ic, 'pval'] <- tmp_test$p.value
+			} else {
+	#			cat("\t\tFisher exact test...\n")
+				tmp_table <- as.data.frame.matrix(table(tmp_df$comp, tmp_df[,ncol(tmp_df)]))
+				tmp_prop_table <- prop.table(as.matrix(tmp_table),margin=1)
+	#			print(im)
+	#			print(tmp_prop_table)
+	#			print(dim(tmp_table))
+	#			print(tmp_table)
+				if (sum(tmp_prop_table[1,]==max(tmp_prop_table[1,]))>1|sum(tmp_prop_table[2,]==max(tmp_prop_table[2,]))>1) {
+					marker_df[ic, 'avg1'] <- colnames(tmp_prop_table)[tmp_prop_table[1,]==max(tmp_prop_table[1,])][1]
+					marker_df[ic, 'avg2'] <- colnames(tmp_prop_table)[tmp_prop_table[2,]==max(tmp_prop_table[2,])][1]
+				} else {
+					marker_df[ic, 'avg1'] <- colnames(tmp_prop_table)[tmp_prop_table[1,]==max(tmp_prop_table[1,])]
+					marker_df[ic, 'avg2'] <- colnames(tmp_prop_table)[tmp_prop_table[2,]==max(tmp_prop_table[2,])]
+				}
+				cat(im, '\n')
+				tmp_test <- fisher.test(tmp_table, simulate.p.value=TRUE, B=1e7)#, workspace=2e9)
+				tmp_chitest <- chisq.test(tmp_table, correct=FALSE)
+				marker_df[ic, 'logfc'] <- sqrt(tmp_chitest$statistic/sum(tmp_table))
+				marker_df[ic, 'test'] <- 'Fisher\'s exact test'
+				na_mask <- str_detect(colnames(tmp_table), 'Missing')
+				if (sum(na_mask) == 1) {
+					marker_df[ic, 'per1'] <- 1-tmp_table['COI', na_mask]/sum(tmp_table['COI',])
+					marker_df[ic, 'per2'] <- 1-tmp_table['Others', na_mask]/sum(tmp_table['Others',])
+				}
+				marker_df[ic, 'pval'] <- tmp_test$p.value
+			}
+			ic <- ic + 1
+		}
+	}
+	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
+	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_calories_normed_', input_id, '_marker_df_largeB.csv', sep = "")) # SD4
 }
 
 if (life_act_flag) {
