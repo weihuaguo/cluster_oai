@@ -151,7 +151,7 @@ max_y <- round(max(rtd_df/365, na.rm=T))
 rty_vconv_df <- as.data.frame(matrix(nrow = nrow(rtd_df), ncol = max_y+1))
 rownames(rty_vconv_df) <- rownames(rtd_df)
 colnames(rty_vconv_df) <- str_c("Y", str_pad(0:max_y, 2, pad = "0"))
-
+if (FALSE) { #SAVETIME
 for (i in 1:nrow(rtd_df)) {
 	cat(rownames(rtd_df)[i], "\n")
 	tmp_r <- rtd_df[i,]
@@ -185,6 +185,7 @@ for (i in 1:nrow(rtd_df)) {
 }
 write.csv(rty_vconv_df, paste(data_dir, "outcome_real_date_conversion_year.csv", sep = "")) # SD6
 write.csv(rtd_df/365, paste(data_dir, "outcome_real_date_year_decimal.csv", sep = ""))
+} #SAVETIME
 rty_df <- read.csv(paste(data_dir, "outcome_real_date_conversion_year.csv", sep = ""), header = T, row.names = 1)
 
 cat("Merge cluster results with outcomes...\n")
@@ -196,7 +197,6 @@ gath_df$v <- str_sub(gath_df$outcome, 1,3)
 gath_df$o <- str_sub(gath_df$outcome, 4,-2)
 gath_df$side <- str_sub(gath_df$outcome, -1, -1)
 print(use_oc_df[1:9,1:6])
-q(save = "no")
 #print(head(gath_df))
 #print(unique(gath_df$outcome))
 
@@ -221,11 +221,24 @@ gath_df <- merge(gath_df, umap_df, by = "ID", all.x=T)
 gath_ydf <- gath_df[!is.na(gath_df$y),]
 gath_ydf$yo <- str_c(gath_ydf$y, gath_ydf$o, gath_ydf$side)
 rty_oc_df <- spread(gath_ydf[,c("ID", "yo", "value")], "yo", "value")
-#print(dim(rty_oc_df))
-#print(rty_oc_df[1:9,1:6])
+print(dim(rty_oc_df))
+print(rty_oc_df[1:9,1:6])
 write.csv(rty_oc_df, paste(data_dir, "outcome_all_dataframe_", input_id, "_real_date_year.csv", sep=''))
 print(head(gath_ydf))
 #print(unique(gath_ydf$yo))
+oc_count_df <- gath_ydf %>%
+	filter(!is.na(value)) %>%
+	group_by(y, o, side) %>%
+	summarize(n = n())
+print(head(oc_count_df))
+
+bar_gg <- ggplot(oc_count_df, aes(x = y, y = n)) +
+	geom_bar(stat = "identity", position = "dodge") +
+	facet_grid(side~o, scales = "free") +
+	labs(x = "Visit time (year)", y = "Num. of available measurements") +
+	theme_bw() +
+	theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave(paste(data_dir, "outcome_all_available_subj_num_", input_id, ".png", sep = ""), dpi = png_res, width = 12, height = 9)
 
 for (iotcm in unique(gath_ydf$o)) {
 	cat(iotcm, "\n")
