@@ -55,32 +55,58 @@ gath_df <- gath_df[gath_df$Resource != "Frequency",]
 gath_df$p[is.na(gath_df$p)] <- 1.0
 gath_df <- gath_df %>% add_significance('p')
 gath_df <- gath_df %>%
-	group_by(other_var) %>%
+	group_by(other_var, Resource) %>%
 	mutate(n_sig_supp_var = sum(p.signif != "ns"))
-gath_df <- gath_df %>%
+gath_df$readable_name <- str_split_fixed(gath_df$Label, ", ", n = 2)[,2]
+gath_df$readable_name <- str_split_fixed(gath_df$readable_name, "\\(cal", n = 2)[,1]
+
+write.csv(gath_df, paste(suppf, "gathered_correlation_counts.csv", sep = ""))
+
+pos_gath_df <- gath_df %>%
 	filter(cor > 0) %>%
-	group_by(other_var) %>%
+	group_by(other_var, Resource) %>%
 	mutate(n_pos_sig_supp_var = sum(p.signif != "ns"))
 
-
-print(head(gath_df))
-
-top_df <- gath_df %>%
+top_df <- pos_gath_df %>%
 	group_by(supp_var) %>%
-	top_n(wt = n_sig_supp_var, n=10)
+	top_n(wt = n_sig_supp_var, n=5)
 
 col_num <- length(unique(top_df$other_var))
 manual_color <- colorRampPalette(brewer.pal(8, "Paired"))(col_num)
-gg <- ggplot(top_df, aes(x = supp_var, y = cor, color = other_var)) +
+gg <- ggplot(top_df, aes(x = readable_name, y = cor, color = other_var)) +
 	geom_point(aes(shape = p.signif), size = 3) +
 	scale_color_manual(values = manual_color) +
 	labs(x = "Variable related to nutrition and supplements", y = "Correlation/association", shape = "Statistical\nsignificance", color = "Variables") +
-	facet_row(~Resource, scales = "free", space = "free") +
+	facet_row(~Resource, scales = "free_x", space = "free") +
 	theme_bw() +
 	theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(paste(suppf, "sum_point.png", sep = ""), dpi = 300, width = 16, height =  9)
+ggsave(paste(suppf, "positive_sum_point.png", sep = ""), dpi = 300, width = 16, height =  9)
 print(top_df)
 
+neg_gath_df <- gath_df %>%
+	filter(cor < 0) %>%
+	group_by(other_var, Resource) %>%
+	mutate(n_neg_sig_supp_var = sum(p.signif != "ns"))
+
+
+top_df <- neg_gath_df %>%
+	group_by(supp_var) %>%
+	top_n(wt = n_sig_supp_var, n=5)
+
+col_num <- length(unique(top_df$other_var))
+manual_color <- colorRampPalette(brewer.pal(8, "Paired"))(col_num)
+gg <- ggplot(top_df, aes(x = readable_name, y = cor, color = other_var)) +
+	geom_point(aes(shape = p.signif), size = 3) +
+	scale_color_manual(values = manual_color) +
+	labs(x = "Variable related to nutrition and supplements", y = "Correlation/association", shape = "Statistical\nsignificance", color = "Variables") +
+	facet_row(~Resource, scales = "free_x", space = "free") +
+	theme_bw() +
+	theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave(paste(suppf, "negative_sum_point.png", sep = ""), dpi = 300, width = 16, height =  9)
+print(top_df)
+
+
+q(save = "no")
 cat("Supplements self-correlation\n")
 ol_var <- intersect(sup_var_ann$Variable, rownames(cor_df))
 use_cor_df <- cor_df[ol_var, ol_var]
