@@ -44,6 +44,9 @@ top_m <- 10
 
 names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
 name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
+names <- c("C0" = "Unhealthy diet", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
+name_order <- c("Unhealthy diet", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
+
 
 demographic_flag <- FALSE
 outcome_table_flag <- FALSE
@@ -54,9 +57,9 @@ categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
-supplement_flag <- FALSE
+supplement_flag <- TRUE
 life_act_flag <- FALSE
-norm_flag <- TRUE
+norm_flag <- FALSE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
