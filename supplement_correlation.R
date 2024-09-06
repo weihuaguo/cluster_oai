@@ -50,7 +50,7 @@ gath_df <- merge(gath_cor_df, gath_p_df, by= c("supp_var", "other_var"))
 gath_df <- merge(gath_df, sup_var_ann, by.x = "supp_var", by.y = "Variables", all.x = T)
 
 gath_df$Resource <- ifelse(str_detect(gath_df$Label, "from food"), "From food", 
-			    ifelse(str_detect(gath_df$Label, "from vitamin"), "From suppplements", "Frequency"))
+			    ifelse(str_detect(gath_df$Label, "from vitamin"), "From supplements", "Frequency"))
 gath_df <- gath_df[gath_df$Resource != "Frequency",]
 gath_df$p[is.na(gath_df$p)] <- 1.0
 gath_df <- gath_df %>% add_significance('p')
@@ -59,8 +59,47 @@ gath_df <- gath_df %>%
 	mutate(n_sig_supp_var = sum(p.signif != "ns"))
 gath_df$readable_name <- str_split_fixed(gath_df$Label, ", ", n = 2)[,2]
 gath_df$readable_name <- str_split_fixed(gath_df$readable_name, "\\(cal", n = 2)[,1]
-
 write.csv(gath_df, paste(suppf, "gathered_correlation_counts.csv", sep = ""))
+
+gath_df <- gath_df[!str_detect(gath_df$other_var, "FFQ"),]
+print(head(gath_df))
+gath_df$cor <- as.numeric(gath_df$cor)
+top_df <- gath_df %>%
+	group_by(supp_var) %>%
+	top_n(wt = cor, n = 5)
+btm_df <- gath_df %>%
+	group_by(supp_var) %>%
+	top_n(wt = cor, n = -5)
+cor_var <- unique(c(top_df$other_var, btm_df$other_var))
+use_gath_df <- gath_df[gath_df$other_var %in% cor_var,]
+
+hm_df <- as.data.frame(spread(use_gath_df[,c("supp_var", "other_var", "cor")], "other_var", "cor"))
+print(hm_df[1:9,1:6])
+
+rownames(hm_df) <- hm_df$supp_var
+print(hm_df[1:9,1:6])
+
+hm_df$supp_var <- NULL
+print(dim(hm_df))
+
+supp_ann <- as.data.frame(use_gath_df[!duplicated(use_gath_df$supp_var),])
+rownames(supp_ann) <- supp_ann$supp_var
+print(head(supp_ann))
+col_ann <- HeatmapAnnotation(Resource = supp_ann$Resource,
+			     col = list(Resource = c("From supplements" = "goldenrod", "From food" = "purple"))
+)
+
+cor_hm <- Heatmap(t(hm_df), 
+		  name = "Correlation",
+		  top_annotation = col_ann,
+		  column_split = supp_ann$Resource,
+		  show_row_names = TRUE,
+		  show_column_names = TRUE
+) 
+png(paste(suppf, "supplement_top5_other_cor_heatmap.png", sep = ""), res = 300, width = 16, height = 12, units = 'in')
+draw(cor_hm, heatmap_legend_side = "bottom", merge_legend = T)
+gar <- dev.off()
+q(save = "no")
 
 pos_gath_df <- gath_df %>%
 	filter(cor > 0) %>%
