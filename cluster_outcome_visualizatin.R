@@ -72,12 +72,12 @@ kr_df$right_round_year <- str_c("RIGHT_TKR_Y", str_pad(round(kr_df$right_time/36
 lkr_spread <- spread(kr_df[,c("ID", "left_round_year", "left_kr")], "left_round_year", "left_kr")
 rkr_spread <- spread(kr_df[,c("ID", "right_round_year", "right_kr")], "right_round_year", "right_kr")
 kr_spread <- merge(lkr_spread, rkr_spread, by = "ID")
-kr_spread[is.na(kr_spread)] <- "4: Unattended/Dropped-out"
+kr_spread[is.na(kr_spread)] <- ".:NA"
 kr_gath <- gather(kr_spread, "time_side", "kr", colnames(kr_spread)[str_detect(colnames(kr_spread), "TKR_Y")])
 kr_gath$side <- str_split_fixed(kr_gath$time_side, "_TKR_", n = 2)[,1]
 kr_gath$time <- str_split_fixed(kr_gath$time_side, "_TKR_", n = 2)[,2]
 kr_gath$tkr <- kr_gath$kr
-kr_gath$tkr[str_detect(kr_gath$tkr, "\\.\\:\\ Missing")] <- "3: No/Missing"
+kr_gath$tkr[str_detect(kr_gath$tkr, "\\.\\:\\ Missing")] <- "3:Not expected"
 
 kr_umap_df <- merge(kr_gath, umap_df, by = "ID", all.x = T)
 
@@ -126,6 +126,7 @@ bar_gg <- ggplot(kr_sum_df, aes(x = time, y = n, fill = tkr)) +
 	theme_bw() +
 	theme(legend.position = "top")
 ggsave(paste(ppf, "tkr_bar_stack_together.png", sep = ""), dpi = png_res, width = 6, height = 6)
+q(save = "no")
 
 outcome_patterns<-c('XRKLL', 'XRKLR','WOMADLL', 'WOMADLR', 'WOMKPL', 'WOMKPR', 'MCMJSWL', 'MCMJSWR', 
 		    'WOMSTFL', 'WOMSTFR', 'WOMTSL', 'WOMTSR')
