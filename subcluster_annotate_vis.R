@@ -42,11 +42,17 @@ kr_type <- "total_lastfollowup"
 png_res <- 600
 top_m <- 10
 
+names <- c("C0" = "High pain/depression", "C1" = "High strength", "C2" = "High depression", "C3" = "High nutrition")
+name_order <- c("High nutrition", "High pain/depression", "High depression", "High strength")
+
+general_names <- c("G0" = "Unhealthy diet", "G1" = "Poor knee & general health", "G2" = "Good knee & general health", "G3" = "Intermediate knee & general health")
+general_name_order <- c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Unhealthy diet")
+
 demographic_flag <- FALSE
-outcome_table_flag <- TRUE
+outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
-numeric_vis_marker_flag <- FALSE
+numeric_vis_marker_flag <- TRUE
 categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
@@ -56,11 +62,20 @@ supplement_flag <- FALSE
 cat("Reading python output results...\n")
 general_umap_df <- as.data.frame(read_excel("/mnt/sda1/OAI_Data/kmean_cluster_12252020/clean_v25_cluster4_kmean_pca_umap_res.xlsx"))
 general_umap_df$gcluster <- str_c("G", general_umap_df$kmean_pca)
+general_umap_df$gname <- "NA"
 print(head(general_umap_df))
+for (ic in unique(general_umap_df$gcluster)) {
+	general_umap_df$gname[general_umap_df$gcluster == ic] <- general_names[ic]
+}
+#general_umap_df$gname <- factor(general_umap_df$gname, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Unhealthy diet"))
 
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
 rownames(umap_df) <- umap_df$ID
 umap_df$name <- str_c("C", umap_df$kmean_pca)
+for (ic in unique(umap_df$name)) {
+	umap_df$name[umap_df$name == ic] <- names[ic]
+}
+#umap_df$name <- factor(umap_df$name, levels = c("High nutrition", "High pain/depression", "High depression", "High strength"))
 
 data_df <- as.data.frame(read.csv(paste(data_dir, "input_direct_merge_dataframe_",input_id,"_sbj_clean_",clean_co,".csv", sep = ""), 
 				  sep = ",", header = TRUE, row.names=1, stringsAsFactors = FALSE))
@@ -74,7 +89,7 @@ kr_df <- read.csv(paste(data_dir, kr_type, "_merge_patient_basic_outcome_informa
 rownames(kr_df) <- kr_df$ID
 
 ##### UMAP overlay with clusters [Fig 2A]
-umap_df$cluster <- str_c("C", umap_df$kmean_pca)
+umap_df$name <- factor(umap_df$name, levels = c("High nutrition", "High pain/depression", "High depression", "High strength"))
 umap_gg <- ggplot(umap_df, aes_string(x = "UMAP1", y = "UMAP2", color = "name")) + 
 	geom_point(size = 1) +
 	scale_color_brewer(palette = "Spectral") +
@@ -82,33 +97,40 @@ umap_gg <- ggplot(umap_df, aes_string(x = "UMAP1", y = "UMAP2", color = "name"))
 	labs(color='Cluster') +
 	theme_classic()
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r.png', sep = ""), umap_gg, 
-       dpi = png_res, width = 5, height = 3.5)
-
+       dpi = png_res, width = 7, height = 3.5)
+umap_df$name <- as.character(umap_df$name)
 general_umap_df <- merge(general_umap_df, umap_df, by = "ID", all.x = T)
-general_umap_df$sub_cluster <- ifelse(is.na(general_umap_df$cluster), "Others", general_umap_df$cluster)
-general_umap_df$all_cluster <- ifelse(is.na(general_umap_df$cluster), general_umap_df$gcluster, general_umap_df$cluster)
-
 print(head(general_umap_df))
 
+general_umap_df$sub_cluster <- ifelse(is.na(general_umap_df$name), "Others", general_umap_df$name)
+general_umap_df$sub_cluster <- factor(general_umap_df$sub_cluster, levels = c("High nutrition", "High pain/depression", "High depression", "High strength", "Others"))
+
+general_umap_df$all_cluster <- ifelse(is.na(general_umap_df$name), general_umap_df$gname, general_umap_df$name)
+general_umap_df$all_cluster <- factor(general_umap_df$all_cluster, 
+				      levels = c("High nutrition", "High pain/depression", "High depression", "High strength",
+						 "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health"))
+
+
+print(head(general_umap_df$name[!is.na(general_umap_df$name)]))
+
 umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", color = "sub_cluster")) + 
-	geom_point(size = 1) +
-	scale_color_brewer(palette = "Set1") +
+	geom_point(size = 0.5) +
+	scale_color_brewer(palette = "Spectral") +
 	guides(color = guide_legend(override.aes = list(size = 3))) +
-	labs(color='Cluster') +
+	labs(color='Cluster', x = "UMAP1", y = "UMAP2") +
 	theme_classic()
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_sub_cluster_on_big_umap.png', sep = ""), umap_gg, 
-       dpi = png_res, width = 5, height = 3.5)
+       dpi = png_res, width = 7, height = 3.5)
 
 umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", color = "all_cluster")) + 
-	geom_point(size = 1) +
-	scale_color_brewer(palette = "Set2") +
+	geom_point(size = 0.5) +
+	scale_color_brewer(palette = "Set1") +
 	guides(color = guide_legend(override.aes = list(size = 3))) +
-	labs(color='Cluster') +
+	labs(color='Cluster', x= "UMAP1", y = "UMAP2") +
 	theme_classic()
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_all_cluster_on_big_umap.png', sep = ""), umap_gg, 
-       dpi = png_res, width = 5, height = 3.5)
+       dpi = png_res, width = 8, height = 3.5)
 
-q(save = "no")
 if (FALSE) {
 #metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 ##### UMAP overlay with clusters [Fig S2A]
@@ -321,8 +343,14 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 if (numeric_vis_marker_flag) { # [Fig 2C]
 	cat("Dot plot for numeric markers...\n")
 	num_marker_df <- marker_df[marker_df$type == 'numeric',]
+#	num_marker_df <- num_marker_df[!is.na(num_marker_df$logfc),]
 #	num_marker_df <- num_marker_df[num_marker_df$logfc >=0,]
 	num_marker_df$logpadj <- -log10(num_marker_df$adjp)
+	print(head(num_marker_df))
+	for (ic in unique(num_marker_df$name)) {
+		num_marker_df$name[num_marker_df$name == ic] <- names[ic]
+	}
+
 	num_marker_df$cluster <- as.factor(num_marker_df$cluster)
 	num_marker_df <- num_marker_df[!is.na(num_marker_df$cluster),]
 	top_num_marker_df <- num_marker_df %>%
@@ -330,8 +358,34 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		filter(adjp <= 0.10) %>%
 		top_n(top_m,logfc)
 	plot_top_num_marker_df <- num_marker_df[num_marker_df$variable %in% unique(top_num_marker_df$variable),]
-
 	write.csv(num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_num_markers.csv', sep = ""))
+	print(unique(top_num_marker_df$variable))
+	order_top_num_marker_df <- top_num_marker_df %>% 
+		group_by(variable) %>% 
+		mutate(logfc_order <- order(logfc))
+	write.csv(order_top_num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top_used_num_markers.csv', sep = ""))
+	top_num_marker_df$name <- factor(top_num_marker_df$name, levels = name_order)
+	var_order <- top_num_marker_df$variable[order(top_num_marker_df$name, top_num_marker_df$adjp)]
+
+	sub_data_df <- data_df[,unique(top_num_marker_df$variable)]
+	sub_data_df$ID <- rownames(sub_data_df)
+	merge_sub_data_df <- merge(sub_data_df, umap_df, by = "ID", all = F)
+	gath_plot_df <- gather(merge_sub_data_df, "marker", "value", unique(top_num_marker_df$variable))
+	gath_plot_df$name <- factor(gath_plot_df$name, levels = name_order)
+	gath_plot_df$marker <- factor(gath_plot_df$marker, levels = var_order)
+	vln_gg <- ggplot(gath_plot_df, aes(x = name, y = value, fill = name)) +
+		geom_violin() +
+		facet_grid(.~marker, scales = "free") +
+		labs(x = "Subclusters", y = "Values") +
+		coord_flip() +
+		theme_bw() +
+		theme(legend.position = "none", 
+		      axis.text.x = element_blank(),
+		      strip.text.x = element_text(angle = 90)
+		)
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_num_violins.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 24, height = 3)
+
 	co <- 1:6
 	for (ico in co) {
 		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
@@ -366,10 +420,11 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 
 	plot_top_num_marker_df <- plot_top_num_marker_df[plot_top_num_marker_df$var_name %in% var_levels,]
 	plot_top_num_marker_df$var_name <- factor(plot_top_num_marker_df$var_name, levels = var_levels)
-	plot_top_num_marker_df$name <- factor(plot_top_num_marker_df$name)#, levels = name_order)
+	plot_top_num_marker_df$name <- factor(plot_top_num_marker_df$name, levels = name_order)
 	dot_mgg <- ggplot(plot_top_num_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
 		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0) + 
+		scale_size(breaks = c(1.0, 2.0, 3.0, 4.0)) +
 		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key numeric variables") +
 		theme_bw() +
 		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
