@@ -283,6 +283,10 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 	cat_marker_df <- marker_df[marker_df$type != 'numeric',]
 #	cat_marker_df <- cat_marker_df[cat_marker_df$logfc >=0,]
 	cat_marker_df$logpadj <- -log10(cat_marker_df$adjp)
+	for (ic in unique(cat_marker_df$name)) {
+		cat_marker_df$name[cat_marker_df$name == ic] <- names[ic]
+	}
+
 	cat_marker_df$cluster <- as.factor(cat_marker_df$cluster)
 	cat_marker_df <- cat_marker_df[!is.na(cat_marker_df$cluster),]
 	top_cat_marker_df <- cat_marker_df %>%
@@ -331,8 +335,9 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 	plot_top_cat_marker_df$name <- factor(plot_top_cat_marker_df$name)#, levels = name_order)
 	dot_mgg <- ggplot(plot_top_cat_marker_df, aes(y = name, x = var_name)) +
 		geom_point(aes(color = logfc, size = logpadj)) +
-		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.0, p3 = 1, p4 = 1) + 
-		labs(color = 'log2FC', size = '-log10\nadjusted p-value', y = "Cluster", x = "Key categorical variables") +
+		scale_color_continuous_divergingx(palette = 'RdBu', mid = 0.2, p3 = 1, p4 = 1) + 
+#		scale_color_continuous(palette = "Spectral") +
+		labs(color = "Cramer\'s V", size = '-log10\nadjusted p-value', y = "Cluster", x = "Key categorical variables") +
 		theme_bw() +
 		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_cate_markers.png', sep = ""), 
@@ -365,16 +370,24 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		mutate(logfc_order <- order(logfc))
 	write.csv(order_top_num_marker_df, paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top_used_num_markers.csv', sep = ""))
 	top_num_marker_df$name <- factor(top_num_marker_df$name, levels = name_order)
-	var_order <- top_num_marker_df$variable[order(top_num_marker_df$name, top_num_marker_df$adjp)]
+	var_order <- top_num_marker_df$variable[order(top_num_marker_df$name, top_num_marker_df$logfc)]
+	rownames(var_coding) <- var_coding[,1]
+	order_var_coding <- var_coding[var_order,]
+	print(order_var_coding)
+	q(save = "no")
 
 	sub_data_df <- data_df[,unique(top_num_marker_df$variable)]
 	sub_data_df$ID <- rownames(sub_data_df)
 	merge_sub_data_df <- merge(sub_data_df, umap_df, by = "ID", all = F)
 	gath_plot_df <- gather(merge_sub_data_df, "marker", "value", unique(top_num_marker_df$variable))
+	gath_plot_df <- merge(gath_plot_df, top_num_marker_df[,c("variable", "name")], by.x = "marker", by.y = "variable", all.x = T, suffix = c("", "_feature"))
+	gath_plot_df$highlight <- ifelse(gath_plot_df$name == gath_plot_df$name_feature, "Y", "N")
 	gath_plot_df$name <- factor(gath_plot_df$name, levels = name_order)
 	gath_plot_df$marker <- factor(gath_plot_df$marker, levels = var_order)
 	vln_gg <- ggplot(gath_plot_df, aes(x = name, y = value, fill = name)) +
-		geom_violin() +
+		geom_violin(aes(alpha = highlight, color = highlight)) +
+		scale_alpha_manual(values = c("Y" = 1.0, "N" = 0.25)) +
+		scale_color_manual(values = c("Y" = "black", "N" = "gray")) +
 		facet_grid(.~marker, scales = "free") +
 		labs(x = "Subclusters", y = "Values") +
 		coord_flip() +
@@ -385,7 +398,6 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		)
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_num_violins.png', sep = ""), 
 	       vln_gg, dpi = png_res, width = 24, height = 3)
-
 	co <- 1:6
 	for (ico in co) {
 		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
