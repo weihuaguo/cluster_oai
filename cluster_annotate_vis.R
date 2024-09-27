@@ -47,7 +47,6 @@ name_order <- c("Low supplemental vitamins", "Poor knee & general health", "Inte
 names <- c("C0" = "Unhealthy diet", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
 name_order <- c("Unhealthy diet", "Poor knee & general health", "Intermediate knee & general health", "Good knee & general health")
 
-
 demographic_flag <- FALSE
 outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
@@ -57,9 +56,10 @@ categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
-supplement_flag <- TRUE
+supplement_flag <- FALSE
 life_act_flag <- FALSE
-norm_flag <- FALSE
+bmi_wght_norm_flag <- FALSE
+bmi_wght_norm_vis_flag <- TRUE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -68,7 +68,7 @@ umap_df$name <- str_c("C", umap_df$kmean_pca)
 for (ic in unique(umap_df$name)) {
 	umap_df$name[umap_df$name == ic] <- names[ic]
 }
-umap_df$name <- factor(umap_df$name, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Low supplemental vitamins"))
+umap_df$name <- factor(umap_df$name, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Unhealthy diet"))
 
 data_df <- as.data.frame(read.csv(paste(data_dir, "input_direct_merge_dataframe_",input_id,"_sbj_clean_",clean_co,".csv", sep = ""), 
 				  sep = ",", header = TRUE, row.names=1, stringsAsFactors = FALSE))
@@ -247,7 +247,7 @@ if (one2one_annotation_flag) {
 #	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_direct_knn2imp_', input_id, '_marker_df_largeB.csv', sep = ""))
 }
 
-if (norm_flag) {
+if (bmi_wght_norm_flag) {
 	var_ann <- as.data.frame(read_excel(paste(data_dir, "AllClinical00_V6_column_annotation.xlsx", sep = "/"), sheet = "Baseline"))
 	print(head(var_ann))
 	print(colnames(data_df))
@@ -267,6 +267,7 @@ if (norm_flag) {
 		norm_df[,c] <- use_data_df[,i]/use_data_df[,"P01WEIGHT"]
 		c <- c+1
 	}
+	write.csv(norm_df, paste(data_dir, "bmi_weight_normalized_data.csv", sep = "/"))
 	use_data_df <- norm_df
 	marker_types <- sapply(use_data_df, class)
 	marker_cols <- c('variable', 'cluster', 'type', 'test','avg1', 'avg2', 'diff', 'logfc', 'per1', 'per2', 'pval')
@@ -340,6 +341,39 @@ if (norm_flag) {
 	}
 	marker_df$adjp <- p.adjust(marker_df$pval, method = "BH")
 	write.csv(marker_df, paste(output_prefix, "cluster", cluster_num,'_kmeans_calories_normed_', input_id, '_marker_df_largeB.csv', sep = "")) # SD4
+}
+
+if (bmi_wght_norm_vis_flag) {
+	norm_df <- read.csv(paste(data_dir, "bmi_weight_normalized_data.csv", sep = "/"), header = T, row.names = 1)
+	print(head(norm_df))
+	print(head(umap_df))
+	merge_norm_df <- merge(umap_df, norm_df, by = "row.names", all.x = T)
+	print(head(merge_norm_df))
+	gath_df <- gather(merge_norm_df, "norm_var", "value", colnames(norm_df))
+	gath_df$norm_factor <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,2]
+	gath_df$var <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,1]
+
+	vln_gg <- ggplot(gath_df, aes(x = name, y = value, fill = name)) +
+		geom_violin() +
+#		scale_alpha_manual(values = c("Y" = 1.0, "N" = 0.25)) +
+#		scale_color_manual(values = c("Y" = "black", "N" = "gray")) +
+		facet_grid(norm_factor~var, scales = "free") +
+		labs(x = "Clusters", y = "Values") +
+		coord_flip() +
+		theme_bw() +
+		theme(legend.position = "none", 
+		      axis.text.x = element_blank(),
+		      strip.text.x = element_text(angle = 45)
+		)
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_norm_nutrition_violins.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 18, height = 4.5)
+
+	avg_df <- gath_df %>%
+		group_by(var, norm_factor, name) %>%
+		summarize(avg = mean(value, na.rm = T))
+	print(avg_df)
+
+
 }
 
 if (life_act_flag) {
@@ -877,7 +911,7 @@ if (supplement_flag) {
 	var_ann <- as.data.frame(read_excel(paste(data_dir, "AllClinical00_V6_column_annotation.xlsx", sep = "/"), sheet = "Baseline"))
 	print(head(var_ann))
 	sup_var_ann <- var_ann[var_ann$Sup == "Yes",]
-	suppf <- paste(data_dir, "/supp_analysis/supp_analysis_", sep= "")
+	suppf <- paste(data_dir, "supp_analysis/supp_analysis_", sep= "")
 	print(head(marker_df))
 
 	non_supp_marker_df <- marker_df[!(marker_df$variable %in% sup_var_ann$Variables),]
@@ -918,5 +952,63 @@ if (supplement_flag) {
 	ggsave(paste(suppf, "marker_dotplot.png", sep = ""), dot_gg, dpi = 300, width = 9, height = 21)
 
 	print(head(supp_marker_df))
+
+	cor_gath_df <- read.csv(paste(suppf, "240802_gathered_correlation_top5.csv", sep = ""), header = T, row.names = 1)
+	print(head(cor_gath_df))
+	supp_data_df <- data_df[,unique(cor_gath_df$other_var)]
+	print(dim(supp_data_df))
+	marker_types <- sapply(supp_data_df, class)
+	for (ism in names(marker_types)) {
+		if (marker_types[[ism]] == "numeric") {
+			cat(ism, marker_types[[ism]], "\n")
+			tmp_plot_df <- cbind(umap_df, data_df[, ism])
+			colnames(tmp_plot_df)[ncol(tmp_plot_df)] <- ism
+			tmp_gg <- ggplot(tmp_plot_df, aes_string(x = "name", y = ism, color = "name")) +
+				geom_violin() +
+				geom_jitter(position = position_jitterdodge(0.45), alpha = 0.24, size = 0.3) +
+				scale_color_brewer(palette = 'Spectral') +
+				labs(x = "Cluster", title = ism) +
+				stat_compare_means(aes_string(group = "name"), label = "p.format", label.y = max(tmp_plot_df[,ism], na.rm = T)*0.8, label.x = 1.5) +
+				coord_flip() +
+				theme_bw() +
+				theme(legend.position = "None")
+			ggsave(paste(suppf, ism, '_violin.png', sep = ""), tmp_gg, dpi = png_res, width = 6, height = 3)
+
+			tmp_gg <- ggplot(tmp_plot_df, aes_string(x = "name", y = ism, color = "name")) +
+				geom_boxplot(outlier.shape=NA) +
+				geom_jitter(position = position_jitterdodge(0.45), alpha = 0.24, size = 0.3) +
+				scale_color_brewer(palette = 'Spectral') +
+				labs(x = "Cluster", title = ism) +
+				stat_compare_means(aes_string(group = "name"), label = "p.format", label.y = max(tmp_plot_df[,ism], na.rm = T)*0.8, label.x = 1.5) +
+				coord_flip() +
+				theme_bw() +
+				theme(legend.position = "None")
+			ggsave(paste(suppf, ism, '_boxplot.png', sep = ""), tmp_gg, dpi = png_res, width = 6, height = 3)
+		} else {
+			tmp_plot_df <- cbind(umap_df, data_df[, ism])
+			colnames(tmp_plot_df)[ncol(tmp_plot_df)] <- ism
+			tmp_plot_df$cluster <- as.factor(tmp_plot_df$cluster)
+			tmp_table <- as.data.frame(table(tmp_plot_df[,'name'], tmp_plot_df[, ism]))
+			colnames(tmp_table) <- c("name", ism, "Freq")
+			tmp_table$name <- factor(tmp_table$name, 
+						 levels = c("Poor knee & general health", "Intermediate knee & general health", 
+							    "Good knee & general health", "Unhealthy diet"))
+			tmp_gg <- ggplot(tmp_table, aes_string(x = 'name', y = 'Freq', fill = ism)) +
+				geom_bar(stat = "identity", position = position_stack(), width = 0.5) +
+				scale_fill_brewer(palette = 'Paired') +
+				labs(x = 'Cluster', y = 'Number of subjects', fill = ism, title = ism) +
+				coord_flip() +
+				theme_bw()
+			ggsave(paste(suppf, ism, '_stack_bar.png', sep = ""), tmp_gg, dpi = png_res, width = 9, height = 3)
+
+			tmp_gg <- ggplot(tmp_table, aes_string(x = 'name', y = 'Freq', fill = ism)) +
+				geom_bar(stat = "identity", position = "fill", width = 0.5) +
+				scale_fill_brewer(palette = 'Paired') +
+				labs(x = 'Cluster', y = 'Number of subjects', fill = ism, title = ism) +
+				coord_flip() +
+				theme_bw()
+			ggsave(paste(suppf, ism, '_fill_bar.png', sep = ""), tmp_gg, dpi = png_res, width = 9, height = 3)
+		}
+	}
 }
 
