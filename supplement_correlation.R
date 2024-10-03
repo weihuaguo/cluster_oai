@@ -65,13 +65,15 @@ gath_df <- gath_df[!str_detect(gath_df$other_var, "FFQ"),]
 print(head(gath_df))
 gath_df$cor <- as.numeric(gath_df$cor)
 top_df <- gath_df %>%
-	group_by(supp_var) %>%
+	group_by(supp_var, Resource) %>%
 	top_n(wt = cor, n = 5)
 btm_df <- gath_df %>%
-	group_by(supp_var) %>%
+	group_by(supp_var, Resource) %>%
 	top_n(wt = cor, n = -5)
 cor_var <- unique(c(top_df$other_var, btm_df$other_var))
 use_gath_df <- gath_df[gath_df$other_var %in% cor_var,]
+write.csv(use_gath_df, paste(suppf, "gathered_correlation_top5.csv", sep = ""))
+
 
 hm_df <- as.data.frame(spread(use_gath_df[,c("supp_var", "other_var", "cor")], "other_var", "cor"))
 print(hm_df[1:9,1:6])
@@ -99,7 +101,6 @@ cor_hm <- Heatmap(t(hm_df),
 png(paste(suppf, "supplement_top5_other_cor_heatmap.png", sep = ""), res = 300, width = 16, height = 12, units = 'in')
 draw(cor_hm, heatmap_legend_side = "bottom", merge_legend = T)
 gar <- dev.off()
-q(save = "no")
 
 pos_gath_df <- gath_df %>%
 	filter(cor > 0) %>%
@@ -144,8 +145,6 @@ gg <- ggplot(top_df, aes(x = readable_name, y = cor, color = other_var)) +
 ggsave(paste(suppf, "negative_sum_point.png", sep = ""), dpi = 300, width = 16, height =  9)
 print(top_df)
 
-
-q(save = "no")
 cat("Supplements self-correlation\n")
 ol_var <- intersect(sup_var_ann$Variable, rownames(cor_df))
 use_cor_df <- cor_df[ol_var, ol_var]
@@ -253,16 +252,32 @@ supp_ann <- as.data.frame(matrix(nrow = nrow(hm_df), ncol = 2))
 rownames(supp_ann) <- rownames(hm_df)
 colnames(supp_ann) <- c("ID", "Resource")
 supp_ann$ID <- rownames(supp_ann)
-supp_ann$Resource <- ifelse(str_detect(supp_ann$ID, "from food"), "From food", 
-			    ifelse(str_detect(supp_ann$ID, "from vitamin"), "From suppplements", "Frequency")
+supp_ann$Resource <- ifelse(str_detect(supp_ann$ID, "from food"), "Daily nutrients from food (calculated)", 
+			    ifelse(str_detect(supp_ann$ID, "from vitamin"), "Average daily nutrients\nfrom vitamin supplements (calculated)", "Frequency")
 )
-print(head(supp_ann))
 supp_ann <- supp_ann[supp_ann$Resource != "Frequency",]
 
 print(head(supp_ann))
 hm_df <- hm_df[rownames(supp_ann),]
-row_ann <- rowAnnotation(Resource = supp_ann$Resource,
-			     col = list(Resource = c("From food" = "forestgreen", "From suppplements" = "dodgerblue"))
+rownames(supp_ann) <- str_replace_all(rownames(supp_ann), "\\ \\(calc\\)", "")
+rownames(supp_ann) <- str_replace_all(rownames(supp_ann), "\\ \\(cal", "")
+rownames(supp_ann) <- str_replace_all(rownames(supp_ann), "\\ \\(c", "")
+rownames(supp_ann) <- ifelse(str_detect(rownames(supp_ann), "from food"), str_c(str_split_fixed(rownames(supp_ann), ",\\ ", n = 2)[,2]),
+			     str_c(str_split_fixed(rownames(supp_ann), ",\\ ", n = 2)[,2], " ")
+)
+substr(rownames(supp_ann), 1,1) <- toupper(substr(rownames(supp_ann),1,1))
+print(head(supp_ann))
+rownames(hm_df) <- str_replace_all(rownames(hm_df), "\\ \\(calc\\)", "")
+rownames(hm_df) <- str_replace_all(rownames(hm_df), "\\ \\(cal", "")
+rownames(hm_df) <- str_replace_all(rownames(hm_df), "\\ \\(c", "")
+rownames(hm_df) <- ifelse(str_detect(rownames(hm_df), "from food"), str_c(str_split_fixed(rownames(hm_df), ",\\ ", n = 2)[,2]),
+			     str_c(str_split_fixed(rownames(hm_df), ",\\ ", n = 2)[,2], " ")
+)
+substr(rownames(hm_df), 1,1) <- toupper(substr(rownames(hm_df),1,1))
+
+row_ann <- HeatmapAnnotation(Resource = supp_ann$Resource,
+			     col = list(Resource = c("Daily nutrients from food (calculated)" = "forestgreen", 
+						     "Average daily nutrients\nfrom vitamin supplements (calculated)" = "dodgerblue"))
 )
 
 outcome_ann <- as.data.frame(matrix(nrow = ncol(hm_df), ncol = 3))
@@ -274,19 +289,19 @@ outcome_ann$Year <- str_sub(outcome_ann$ID, 1, 3)
 print(head(outcome_ann))
 outcome_ann <- outcome_ann[outcome_ann$Year != "Y10",]
 hm_df <- hm_df[,rownames(outcome_ann)]
-col_ann <- HeatmapAnnotation(Side = outcome_ann$Side,
+col_ann <- rowAnnotation(Side = outcome_ann$Side,
 			     col = list(Side = c("L" = "goldenrod", "R" = "purple"))
 )
 
 
-cor_hm <- Heatmap(hm_df, 
-		  name = "Correlation",
-		  heatmap_width = unit(20, 'cm'),
-		  top_annotation = col_ann,
-		  left_annotation = row_ann,
-		  column_split = outcome_ann$Side,
-		  row_split = supp_ann$Resource
+cor_hm <- Heatmap(t(hm_df), 
+		  name = "Correlation\nbetween WOMAC-TS and nutrients",
+		  heatmap_height = unit(18, 'cm'),
+		  left_annotation = col_ann,
+		  top_annotation = row_ann,
+		  row_split = outcome_ann$Side,
+		  column_split = supp_ann$Resource
 ) 
-png(paste(rpf, "supplement_outcome_cor_heatmap_clusters.png", sep = ""), res = 300, width = 24, height = 16, units = 'in')
-draw(cor_hm, heatmap_legend_side = "left", merge_legend = T)
+png(paste(rpf, "supplement_outcome_cor_heatmap_clusters.png", sep = ""), res = 300, width = 18, height = 9, units = 'in')
+draw(cor_hm, heatmap_legend_side = "right", merge_legend = T)
 gar <- dev.off()
