@@ -52,8 +52,8 @@ demographic_flag <- FALSE
 outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
-numeric_vis_marker_flag <- TRUE
-categorical_vis_marker_flag <- FALSE
+numeric_vis_marker_flag <- FALSE
+categorical_vis_marker_flag <- TRUE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
@@ -341,7 +341,7 @@ if (categorical_vis_marker_flag) { # [Fig 2B]
 		theme_bw() +
 		theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_cate_markers.png', sep = ""), 
-	       dot_mgg, dpi = png_res, width = 10, height = 6)
+	       dot_mgg, dpi = png_res, width = 10, height = 4)
 }
 
 
