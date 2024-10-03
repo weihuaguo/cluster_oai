@@ -353,26 +353,32 @@ if (bmi_wght_norm_vis_flag) {
 	gath_df$norm_factor <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,2]
 	gath_df$var <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,1]
 
-	vln_gg <- ggplot(gath_df, aes(x = name, y = value, fill = name)) +
-		geom_violin() +
-#		scale_alpha_manual(values = c("Y" = 1.0, "N" = 0.25)) +
-#		scale_color_manual(values = c("Y" = "black", "N" = "gray")) +
-		facet_grid(norm_factor~var, scales = "free") +
+	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "BMI",], aes(x = name, y = value, fill = name)) +
+		geom_violin() + 
+		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "red") +
+		facet_grid(.~var, scales = "free") +
 		labs(x = "Clusters", y = "Values") +
 		coord_flip() +
 		theme_bw() +
 		theme(legend.position = "none", 
 		      axis.text.x = element_blank(),
-		      strip.text.x = element_text(angle = 45)
+		      strip.text.x = element_text(angle = 90)
 		)
-	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_all_norm_nutrition_violins.png', sep = ""), 
-	       vln_gg, dpi = png_res, width = 18, height = 4.5)
-
-	avg_df <- gath_df %>%
-		group_by(var, norm_factor, name) %>%
-		summarize(avg = mean(value, na.rm = T))
-	print(avg_df)
-
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_violins.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 18, height = 2.4)
+	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "WEIGHT",], aes(x = name, y = value, fill = name)) +
+		geom_violin() + 
+		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "red") +
+		facet_grid(.~var, scales = "free") +
+		labs(x = "Clusters", y = "Values") +
+		coord_flip() +
+		theme_bw() +
+		theme(legend.position = "none", 
+		      axis.text.x = element_blank(),
+		      strip.text.x = element_text(angle = 90)
+		)
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_weight_norm_nutrition_violins.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 18, height = 2.4)
 
 }
 
