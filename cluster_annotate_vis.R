@@ -355,9 +355,9 @@ if (bmi_wght_norm_vis_flag) {
 
 	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "BMI",], aes(x = name, y = value, fill = name)) +
 		geom_violin() + 
-		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "red") +
+		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "yellow") +
 		facet_grid(.~var, scales = "free") +
-		labs(x = "Clusters", y = "Values") +
+		labs(x = "Clusters", y = "Values normalized to BMI") +
 		coord_flip() +
 		theme_bw() +
 		theme(legend.position = "none", 
@@ -365,12 +365,12 @@ if (bmi_wght_norm_vis_flag) {
 		      strip.text.x = element_text(angle = 90)
 		)
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_violins.png', sep = ""), 
-	       vln_gg, dpi = png_res, width = 18, height = 2.4)
+	       vln_gg, dpi = png_res, width = 18, height = 2)
 	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "WEIGHT",], aes(x = name, y = value, fill = name)) +
 		geom_violin() + 
 		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "red") +
 		facet_grid(.~var, scales = "free") +
-		labs(x = "Clusters", y = "Values") +
+		labs(x = "Clusters", y = "Values normalized to weight") +
 		coord_flip() +
 		theme_bw() +
 		theme(legend.position = "none", 
