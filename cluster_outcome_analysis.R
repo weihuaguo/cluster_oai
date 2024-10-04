@@ -28,8 +28,8 @@ suppressMessages(library(forestmodel))
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
 data_dir <- "/mnt/sda1/OAI_Data/data_summary/"
 
-clst_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/kmean_cluster_12252020/"
-data_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/data_summary/"
+#clst_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/kmean_cluster_12252020/"
+#data_dir <- "/home/weihua/mnts/smb_plee/Group/weihua/met_public_data/OAI_Data/data_summary/"
 
 
 exp_id <- "kmean_pca_umap"
@@ -45,7 +45,8 @@ kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
-compare_flag <- TRUE
+baseline_dist_flag <- TRUE
+compare_flag <- FALSE
 compare_diff_flag <- FALSE
 compare_121_flag <- FALSE
 compare_vis_flag <- FALSE
@@ -58,25 +59,62 @@ umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, 
 rownames(umap_df) <- umap_df$ID
 umap_df$raw_cluster <- umap_df$kmean_pca
 umap_df$Cluster <- umap_df$kmean_pca
-umap_df$Cluster[umap_df$Cluster == 0] <- "Low supplemental vitamins"
+umap_df$Cluster[umap_df$Cluster == 0] <- "Unhealthy diet"
 umap_df$Cluster[umap_df$Cluster == 1] <- "Poor knee & general health"
 umap_df$Cluster[umap_df$Cluster == 2] <- "Good knee & general health"
 umap_df$Cluster[umap_df$Cluster == 3] <- "Intermediate knee & general health"
 
-umap_df$Cluster <- factor(umap_df$Cluster, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Low supplemental vitamins"))
+umap_df$Cluster <- factor(umap_df$Cluster, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Unhealthy diet"))
 
 data_df <- as.data.frame(read.csv(paste(data_dir, "input_direct_merge_dataframe_",input_id,"_sbj_clean_",clean_co,".csv", sep = ""), 
 				  sep = ",", header = TRUE, row.names=1, stringsAsFactors = FALSE))
 var_types <- sapply(data_df, class)
 metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 print(data_df[1:9, 1:6])
-mf_cols <- c("P01BMI", "V00AGE", "V00CESD", "V00COMORB")
+mf_cols <- c("V00AGE", "P02SEX", "P01BMI", "V00CESD", "V00COMORB")
 mf_df <- data_df[,mf_cols]
 # print(head(umap_df))
+# print(head(mf_df))
 
 
 data_files <- list.files(paste(data_dir, surv_folder, sep = ""), pattern = '_used_clean_dataframe_with_real_time.csv')
 print(data_files)
+
+if (baseline_dist_flag) {
+	c <- 0
+	for (idata in data_files[str_detect(data_files, "WOMTS")]) {
+		cat(idata, "\n")
+		out_name <- str_split_fixed(idata, "_", n = 2)[1]
+		tmp_data <- read.csv(paste(data_dir, surv_folder, "/", idata, sep = ""), header = T)
+		merge_data <- merge(tmp_data, umap_df, by = "ID", all.x = T)
+#		print(head(merge_data))
+#		q(save = "no")
+		tmp_pf <- paste(data_dir, surv_folder, "/", out_name, "_final_", sep = "")
+
+		year_data <- merge_data[!is.na(merge_data$Cluster),]
+
+		year_data$year_mod <- year_data$tm %% 12
+		year_data <- year_data[year_data$year_mod <= 3 | year_data$year_mod >= 9,]
+		year_data$tm_round <- ifelse(year_data$year_mod <= 3, year_data$tm-year_data$year_mod, 
+					     year_data$tm+12-year_data$year_mod)
+		year_data$tyr <- year_data$tm_round/12
+		year_data$ytyr <- str_c("Y", year_data$tyr)
+
+		year_data <- year_data %>% 
+			group_by(tyr, Cluster) %>%
+			mutate(n = n(), avg = mean(value, na.rm = T))
+#		print(head(year_data))
+#		print(unique(year_data$ytyr))
+#		print(min(year_data$n))
+		plot_data <- year_data[str_detect(year_data$vid, "V00"),]
+		plot_data <- plot_data[plot_data$value <= 10,]
+		hist_gg <- ggplot(plot_data, aes(x = value)) +
+			geom_histogram(color = "darkblue", fill = "lightblue") +
+			labs(title = paste(out_name, "(Baseline from 0 to 10)"), x = out_name) +
+			theme_bw()
+		ggsave(paste(tmp_pf, "histogram_0_to_10.png", sep = ""), dpi = png_res, width = 6, height = 4)
+	}
+}
 
 if (compare_flag) {
 	c <- 0
@@ -482,7 +520,7 @@ if (compare_vis_flag) {
 			     size = "Statistical significance\n(Adjusted p-value)") +
 			theme_bw() +
 			theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-			      plot.margin = unit(c(0.1,0.1,0.1,1.28), "cm")
+			      plot.margin = unit(c(0.1,0.1,0.1,1.6), "cm")
 			)
 		ggsave(paste(data_dir, surv_folder,  "/", iv, "_outcome_cluster_marker_avg_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 6, height = 5)	
 		dot_gg <- ggplot(tmp_plot_df, aes(x = group1, y = ytyr)) +
@@ -494,7 +532,7 @@ if (compare_vis_flag) {
 			     size = "Statistical significance\n(Adjusted p-value)") +
 			theme_bw() +
 			theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-			      plot.margin = unit(c(0.1,0.1,0.1,1.28), "cm")
+			      plot.margin = unit(c(0.1,0.1,0.1,1.6), "cm")
 			)
 		ggsave(paste(data_dir, surv_folder,  "/", iv, "_outcome_cluster_marker_diff_dotplot.png", sep = ""), dot_gg, dpi = png_res, width = 6, height = 5)	
 
@@ -617,14 +655,14 @@ if (surv_mf_flag) {
 		}
 
 		merge_prog <- merge(merge_prog, mf_df, by.x = "ID", by.y = "row.names", all.x = T)
-#		print(head(merge_prog))
+		print(head(merge_prog))
 		
 		fprog <- merge_prog
 		fprog$Cluster <- factor(fprog$Cluster,
-					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Unhealthy diet"))
 
 		png(paste(tmp_pf, 'day_forestmodel_mf_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
-		print(forest_model(coxph(Surv((dstop - dstart), event) ~ P01BMI + V00AGE + V00CESD + Cluster, data=fprog))+labs(title = out_name))
+		print(forest_model(coxph(Surv((dstop - dstart), event) ~ V00AGE + P02SEX + P01BMI + V00CESD + Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
 	}
 
@@ -672,7 +710,7 @@ if (surv_flag) {
 
 		fprog <- merge_prog
 		fprog$Cluster <- factor(fprog$Cluster, 
-					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Unhealthy diet"))
 
 		png(paste(tmp_pf, 'day_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 		print(forest_model(coxph(Surv((dstop - dstart), event) ~ Cluster, data=fprog))+labs(title = out_name))
@@ -691,7 +729,7 @@ if (surv_flag) {
 
 		fprog <- merge_prog
 		fprog$Cluster <- factor(fprog$Cluster, 
-					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Unhealthy diet"))
 
 		png(paste(tmp_pf, 'month_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 		print(forest_model(coxph(Surv((mstop - mstart), event) ~ Cluster, data=fprog))+labs(title = out_name))
@@ -715,7 +753,7 @@ if (surv_flag) {
 
 		fprog <- merge_prog
 		fprog$Cluster <- factor(fprog$Cluster, 
-					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Unhealthy diet"))
 		png(paste(tmp_pf, 'half_year_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 		print(forest_model(coxph(Surv(tyhr, event) ~ Cluster, data=fprog))+labs(title = out_name))
 		gar <- dev.off()
@@ -741,7 +779,7 @@ if (surv_flag) {
 
 		fprog <- year_prog
 		fprog$Cluster <- factor(fprog$Cluster, 
-					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Low supplemental vitamins"))
+					levels = c("Good knee & general health", "Intermediate knee & general health", "Poor knee & general health", "Unhealthy diet"))
 
 		png(paste(tmp_pf, 'year_forestmodel_hr.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in')
 		print(forest_model(coxph(Surv(tyr, event) ~ Cluster, data=fprog))+labs(title = out_name))
