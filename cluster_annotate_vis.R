@@ -25,6 +25,8 @@ suppressMessages(library(boot))
 suppressMessages(library(table1))
 suppressMessages(library(colorspace))
 suppressMessages(library(ggforce))
+suppressMessages(library(ComplexHeatmap))
+suppressMessages(library(circlize))
 
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_cluster_12252020/"
@@ -352,6 +354,36 @@ if (bmi_wght_norm_vis_flag) {
 	gath_df <- gather(merge_norm_df, "norm_var", "value", colnames(norm_df))
 	gath_df$norm_factor <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,2]
 	gath_df$var <- str_split_fixed(gath_df$norm_var, "_", n = 2)[,1]
+	print(head(gath_df))
+
+	bmi_df <- gath_df[gath_df$norm_factor == "BMI",]
+	spr_df <- spread(bmi_df[,c("ID", "var", "value")], "var", "value")
+	rownames(spr_df) <- spr_df$ID
+	spr_df$ID <- NULL
+	spr_df <- spr_df[rowSums(is.na(spr_df)) == 0,]
+	pat_ann <- umap_df[rownames(spr_df),]
+	print(head(pat_ann))
+
+	row_ann <- HeatmapAnnotation(Cluster = pat_ann$name,
+				     col = list(Cluster = c("Unhealthy diet" = "goldenrod", 
+							     "Good knee & general health" = "forestgreen",
+							     "Intermediate knee & general health" = "dodgerblue",
+							     "Poor knee & general health" = "firebrick"
+							     ))
+	)
+	cor_hm <- Heatmap(t(scale(spr_df)), 
+			  name = "Values normalized to BMI",
+			  show_column_names = FALSE,
+#			  heatmap_height = unit(18, 'cm'),
+#			  left_annotation = col_ann,
+			  top_annotation = row_ann,
+#			  row_split = outcome_ann$Side,
+			  column_split = pat_ann$name
+	) 
+	png(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_scaled_all_heatmap.png', sep = ""), 
+	    res = 300, width = 16, height = 9, units = 'in')
+	draw(cor_hm, heatmap_legend_side = "right", merge_legend = T)
+	gar <- dev.off()
 
 	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "BMI",], aes(x = name, y = value, fill = name)) +
 		geom_violin() + 
@@ -366,6 +398,76 @@ if (bmi_wght_norm_vis_flag) {
 		)
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_violins.png', sep = ""), 
 	       vln_gg, dpi = png_res, width = 18, height = 2)
+
+	stat_df <- gath_df %>%
+		filter(norm_factor == "BMI") %>%
+		group_by(name, var) %>%
+		summarise(n = n(),
+			  mean = mean(value, na.rm = T),
+			  median = median(value, na.rm = T),
+			  sd = sd(value, na.rm = T),
+			  min = min(value, na.rm = T),
+			  max = max(value, na.rm = T),
+			  se = sd/sqrt(n),
+			  mean_se_upper = mean+se,
+			  mean_se_lower = mean-se)
+	print(head(stat_df))
+	spr_stat_df <- as.data.frame(spread(stat_df[,c("var", "name", "mean")], "var", "mean"))
+	rownames(spr_stat_df) <- spr_stat_df$name
+	spr_stat_df$name <- NULL
+	for (ivn in 1:nrow(var_coding)) {
+		if (var_coding[ivn, "VID"] %in% colnames(spr_stat_df)) {
+			tmp_mask <- colnames(spr_stat_df) == var_coding[ivn, "VID"]
+			colnames(spr_stat_df)[tmp_mask] <- var_coding[ivn, "Name"]
+		}
+	}
+
+	print(head(spr_stat_df))
+
+	cor_hm <- Heatmap(scale(spr_stat_df), 
+			  name = "Z-score (Average values normalized to BMI)",
+			  heatmap_width = unit(24, 'cm'),
+			  heatmap_legend_param = list(direction = "horizontal", legend_width = unit(3.6, "cm")),
+			  rect_gp = gpar(col = "white", lwd = 2)
+	) 
+	png(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_scaled_avg_heatmap.png', sep = ""), 
+	    res = 300, width = 10, height = 5, units = 'in')
+	draw(cor_hm, heatmap_legend_side = "bottom", merge_legend = T)
+	gar <- dev.off()
+	q(save = "no")
+
+
+	vln_gg <- ggplot() +
+		geom_bar(data = stat_df, position=position_dodge(width = 0.6, preserve = "single"), stat="identity", 
+			 aes(color = name, fill = name, x = name, y = mean), alpha = 0.1, width = 0.5) +
+		geom_errorbar(data = stat_df, aes(ymin = mean_se_lower, ymax = mean_se_upper, color = name, x = name, y = mean), 
+			      width = 0.2, position = position_dodge(width = 0.6)) + 
+		facet_grid(.~var, scales = "free") +
+		labs(x = "Clusters", y = "Values normalized to BMI") +
+		expand_limits(y = 1) +
+		coord_flip() +
+		theme_bw() +
+		theme(legend.position = "none", 
+		      axis.text.x = element_blank(),
+		      strip.text.x = element_text(angle = 90)
+		)
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_bar.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 18, height = 2)
+
+
+	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "BMI",], aes(x = name, y = value, color = name)) +
+		geom_boxplot(outlier.shape = NA) + 
+		facet_grid(.~var, scales = "free") +
+		labs(x = "Clusters", y = "Values normalized to BMI") +
+		coord_flip() +
+		theme_bw() +
+		theme(legend.position = "none", 
+		      axis.text.x = element_blank(),
+		      strip.text.x = element_text(angle = 90)
+		)
+	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_bmi_norm_nutrition_box.png', sep = ""), 
+	       vln_gg, dpi = png_res, width = 18, height = 2)
+
 	vln_gg <- ggplot(gath_df[gath_df$norm_factor == "WEIGHT",], aes(x = name, y = value, fill = name)) +
 		geom_violin() + 
 		stat_summary(fun = "mean", geom = "point", size = 0.1, colour = "red") +
