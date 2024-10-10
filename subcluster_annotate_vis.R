@@ -25,6 +25,7 @@ suppressMessages(library(boot))
 suppressMessages(library(table1))
 suppressMessages(library(colorspace))
 suppressMessages(library(ggforce))
+suppressMessages(library(RColorBrewer))
 
 
 clst_dir <- "/mnt/sda1/OAI_Data/kmean_subcluster_07072024/"
@@ -52,8 +53,8 @@ demographic_flag <- FALSE
 outcome_table_flag <- FALSE
 cluster_annotation_flag <- FALSE
 one2one_annotation_flag <- FALSE
-numeric_vis_marker_flag <- FALSE
-categorical_vis_marker_flag <- TRUE
+numeric_vis_marker_flag <- TRUE
+categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
 volcano_flag <- FALSE
@@ -122,15 +123,42 @@ umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", colo
 ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_sub_cluster_on_big_umap.png', sep = ""), umap_gg, 
        dpi = png_res, width = 7, height = 3.5)
 
-umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x", color = "all_cluster")) + 
-	geom_point(size = 0.5) +
-	scale_color_brewer(palette = "Set1") +
-	guides(color = guide_legend(override.aes = list(size = 3))) +
-	labs(color='Cluster', x= "UMAP1", y = "UMAP2") +
-	theme_classic()
-ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_all_cluster_on_big_umap.png', sep = ""), umap_gg, 
-       dpi = png_res, width = 8, height = 3.5)
+all_col <- colorRampPalette(brewer.pal(11,"Spectral"))(length(general_name_order))
+names(all_col) <- general_name_order
+print(all_col)
+sub_col <- hue_pal()(4)
 
+#sub_col <- colorRampPalette(brewer.pal(8,"Set1"))(length(name_order))
+names(sub_col) <- name_order
+
+print(typeof(all_col))
+names(all_col)[4] <- "High nutrition"
+all_col['High nutrition'] <- sub_col['High nutrition']
+all_col['High pain/depression'] <- sub_col['High pain/depression']
+all_col['High depression'] <- sub_col['High depression']
+all_col['High strength'] <- sub_col['High strength']
+
+all_alpha <- c(0.25, 0.25, 0.25, 1, 1, 1, 1)
+names(all_alpha) <- names(all_col)
+#all_alpha[1] <- 0.6
+#all_alpha[2] <- 0.6
+#all_alpha[3] <- 0.6
+#all_alpha[4] <- 1
+#all_alpha[5] <- 1
+#all_alpha[6] <- 1
+#all_alpha[7] <- 1
+print(all_alpha)
+
+umap_gg <- ggplot(general_umap_df, aes_string(x = "UMAP1.x", y = "UMAP2.x")) + 
+	geom_point(size = 0.5, aes_string(color = "all_cluster", alpha = "all_cluster")) +
+	scale_color_manual(values = all_col) +
+	scale_alpha_manual(values = all_alpha, guide = 'none') +
+	guides(color = guide_legend(override.aes = list(size = 3), ncol = 2), alpha = 'none') +
+	labs(color='Cluster', x= "UMAP1", y = "UMAP2") +
+	theme_classic() +
+	theme(legend.position = "bottom")
+ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_umap_r_all_cluster_on_big_umap.png', sep = ""), umap_gg, 
+       dpi = png_res, width = 5.4, height = 6)
 if (FALSE) {
 #metric_df <- as.data.frame(read_excel(paste(input_prefix, 'kmeans_metric_result_direct_knn2imp_', input_id, '.xlsx', sep = "")))
 ##### UMAP overlay with clusters [Fig S2A]
@@ -374,7 +402,6 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 	rownames(var_coding) <- var_coding[,1]
 	order_var_coding <- var_coding[var_order,]
 	print(order_var_coding)
-	q(save = "no")
 
 	sub_data_df <- data_df[,unique(top_num_marker_df$variable)]
 	sub_data_df$ID <- rownames(sub_data_df)
@@ -383,12 +410,14 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 	gath_plot_df <- merge(gath_plot_df, top_num_marker_df[,c("variable", "name")], by.x = "marker", by.y = "variable", all.x = T, suffix = c("", "_feature"))
 	gath_plot_df$highlight <- ifelse(gath_plot_df$name == gath_plot_df$name_feature, "Y", "N")
 	gath_plot_df$name <- factor(gath_plot_df$name, levels = name_order)
-	gath_plot_df$marker <- factor(gath_plot_df$marker, levels = var_order)
+	gath_plot_df <- merge(gath_plot_df, order_var_coding, by.x = "marker", by.y = "VID", all.x = T)
+	gath_plot_df$Name <- factor(gath_plot_df$Name, levels = order_var_coding$Name)
+	print(head(gath_plot_df))
 	vln_gg <- ggplot(gath_plot_df, aes(x = name, y = value, fill = name)) +
 		geom_violin(aes(alpha = highlight, color = highlight)) +
 		scale_alpha_manual(values = c("Y" = 1.0, "N" = 0.25)) +
 		scale_color_manual(values = c("Y" = "black", "N" = "gray")) +
-		facet_grid(.~marker, scales = "free") +
+		facet_grid(.~Name, scales = "free") +
 		labs(x = "Subclusters", y = "Values") +
 		coord_flip() +
 		theme_bw() +
@@ -397,7 +426,9 @@ if (numeric_vis_marker_flag) { # [Fig 2C]
 		      strip.text.x = element_text(angle = 90)
 		)
 	ggsave(paste(output_prefix, "cluster", cluster_num, '_kmeans_direct_knn2imp_', input_id, '_top', top_m, '_num_violins.png', sep = ""), 
-	       vln_gg, dpi = png_res, width = 24, height = 3)
+	       vln_gg, dpi = png_res, width = 24, height = 5)
+	q(save = "no")
+
 	co <- 1:6
 	for (ico in co) {
 		sig_num_marker_df <- num_marker_df %>% group_by(cluster) %>% filter(adjp <= 10^-ico)
