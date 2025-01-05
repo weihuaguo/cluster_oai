@@ -41,7 +41,7 @@ cluster_num <- 4
 scale_top <- 4
 kr_type <- "total_lastfollowup"
 
-png_res <- 600
+png_res <- 300
 top_m <- 10
 
 names <- c("C0" = "Low supplemental vitamins", "C1" = "Poor knee & general health", "C2" = "Good knee & general health", "C3" = "Intermediate knee & general health")
@@ -57,11 +57,11 @@ numeric_vis_marker_flag <- FALSE
 categorical_vis_marker_flag <- FALSE
 umap_vis_flag <- FALSE
 violin_vis_flag <- FALSE
-volcano_flag <- FALSE
+volcano_flag <- TRUE
 supplement_flag <- FALSE
 life_act_flag <- FALSE
 bmi_wght_norm_flag <- FALSE
-bmi_wght_norm_vis_flag <- TRUE
+bmi_wght_norm_vis_flag <- FALSE
 
 cat("Reading python output results...\n")
 umap_df <- as.data.frame(read_excel(paste(input_prefix, "cluster", cluster_num, "_kmean_pca_umap_res.xlsx", sep = "")))
@@ -650,7 +650,7 @@ marker_df$name <- str_c("C", marker_df$cluster)
 for (ic in unique(marker_df$name)) {
 	marker_df$name[marker_df$name == ic] <- names[ic]
 }
-marker_df$name <- factor(marker_df$name, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Low supplemental vitamins"))
+marker_df$name <- factor(marker_df$name, levels = c("Poor knee & general health", "Intermediate knee & general health", "Good knee & general health", "Unhealthy diet"))
 
 if (categorical_vis_marker_flag) { # [Fig 2B]
 	cat("Dot plot for categorical markers...\n")
@@ -795,7 +795,7 @@ if (volcano_flag) { # Fig S3
 	num_marker_df <- merge_marker_df[merge_marker_df$type=='numeric',]
 	volgg <- ggplot(num_marker_df, aes(x = logfc, y = logpadj)) +
 		geom_point(aes(color=name), alpha=0.6, size=3) +
-		geom_label_repel(aes(label=`Short name`), segment.color = 'grey50',
+		geom_label_repel(aes(label=`Short name`), segment.color = 'grey50', size = 6,
 				 max.overlaps = 15)+ # box.padding   = 0.35, point.padding = 0.5, 
 		geom_vline(xintercept = 0) +
 		geom_hline(yintercept = 1) +
@@ -836,7 +836,7 @@ if (volcano_flag) { # Fig S3
 	num_marker_df <- merge_marker_df[merge_marker_df$type!='numeric',]
 	volgg <- ggplot(num_marker_df, aes(x = logfc, y = logpadj)) +
 		geom_point(aes(color=name), alpha=0.6, size=3) +
-		geom_label_repel(aes(label=`Short name`), segment.color = 'grey50',
+		geom_label_repel(aes(label=`Short name`), segment.color = 'grey50', size = 6,
 				 max.overlaps = 15)+ # box.padding   = 0.35, point.padding = 0.5, 
 		geom_vline(xintercept = 0) +
 		geom_hline(yintercept = 1) +
