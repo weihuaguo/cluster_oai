@@ -45,13 +45,13 @@ kr_type <- "total_lastfollowup"
 
 png_res <- 300
 top_m <- 10
-baseline_dist_flag <- TRUE
+baseline_dist_flag <- FALSE
 compare_flag <- FALSE
 compare_diff_flag <- FALSE
 compare_121_flag <- FALSE
 compare_vis_flag <- FALSE
 surv_flag <- FALSE
-surv_cohort_flag <- FALSE
+surv_cohort_flag <- TRUE
 surv_mf_flag <- FALSE
 
 cat("Reading python output results...\n")
@@ -546,7 +546,6 @@ if (surv_cohort_flag) {
 	print(prog_files)
 	kr_df <- read.csv(paste(data_dir, kr_type, "_merge_patient_basic_outcome_information.csv", sep = ""), header = T)
 #	print(head(kr_df))
-
 	for (iprog in prog_files) {
 		cat(iprog, "\n")
 		if (surv_type == "v00") {
@@ -587,6 +586,7 @@ if (surv_cohort_flag) {
 		png(paste(tmp_pf, 'day_kmplot.png', sep = ""), res = png_res, width = 9, height = 4, units = 'in') #Fig S4
 		print(tmp_lgg)
 		gar <- dev.off()
+
 
 		tmp_lfit <- survfit(Surv((dstop - dstart), event) ~ Cluster, data = merge_prog[merge_prog$V00COHORT == "2: Incidence",], id = ID)
 		tmp_lgg <- ggsurvplot(tmp_lfit, pval = T, pval.coord = c(10, 0.82), ggtheme = theme_bw(), palette = "Dark2", censor.size=2, ylim=c(0.8,1), 
