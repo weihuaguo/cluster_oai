@@ -48,10 +48,10 @@ top_m <- 10
 baseline_dist_flag <- FALSE
 compare_flag <- FALSE
 compare_diff_flag <- FALSE
-compare_121_flag <- FALSE
+compare_121_flag <- TRUE
 compare_vis_flag <- FALSE
 surv_flag <- FALSE
-surv_cohort_flag <- TRUE
+surv_cohort_flag <- FALSE
 surv_mf_flag <- FALSE
 
 cat("Reading python output results...\n")
@@ -495,6 +495,14 @@ if (compare_121_flag) {
 			labs(title = out_name, y = "Comparisons (one-to-one)", x = "log2 fold changes of averages", color = "Adjusted\nP-value") +
 			theme_bw()
 		ggsave(paste(tmp_pf, "point_121_comp_adj.png", sep = ""), dpi = png_res, width = 9, height = 12)
+		alg_gg <- ggplot(pw_res, aes(x = avg_log2FC, y = comp, color = p.adj.signif)) +
+			geom_point(size = 6) +
+			geom_vline(xintercept = 0, linetype = "dashed") +
+			scale_color_manual(values = sig_color) +
+			facet_wrap(~ ytyr, ncol = 1) +
+			labs(title = out_name, y = "Comparisons (one-to-one)", x = "log2 fold changes of averages", color = "Adjusted\nP-value") +
+			theme_bw()
+		ggsave(paste(tmp_pf, "point_121_comp_adj_fixed.png", sep = ""), dpi = png_res, width = 9, height = 12)
 	}
 }
 
